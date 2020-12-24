@@ -1,0 +1,15 @@
+[package]
+name = "kube-rs"
+version = "0.1.0"
+authors = ["alexander <alex.gusain@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+kube = "*"
+kube-runtime = "*"
+k8s-openapi = { version = "*", features = ["v1_19"] }
+
+
+futures = "*"
