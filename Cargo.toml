@@ -13,3 +13,11 @@ k8s-openapi = { version = "*", default-features = false, features = ["v1_19"] }
 
 
 futures = "*"
+
+serde_json = "*"
+
+serde = "*"
+
+tokio = { version = "*", features = ["full"] }
+
+tungstenite = "*"
