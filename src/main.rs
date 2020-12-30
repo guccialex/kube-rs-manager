@@ -87,8 +87,9 @@ async fn main() {
     let mut totalgamepods = 0;
     
     
+    //create 10 nginx pods to spin ups
     
-    for podnumber in 0..0{
+    for podnumber in 0..10{
         
         
         totalgamepods += 1;
