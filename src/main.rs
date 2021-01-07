@@ -50,6 +50,10 @@ async fn main() {
     
     let result = podapi.list(&lp);
     let result = block_on(result).unwrap();
+
+
+
+    let mut gamepodip : String = "".to_string();
     
     for item in result{
         
@@ -61,6 +65,8 @@ async fn main() {
                 
                 println!("the pods IP {:?}", podip  );
                 
+                gamepodip = podip;
+
                 let podname = item.metadata.name.unwrap();
                 
             }
@@ -68,6 +74,43 @@ async fn main() {
     }
 
 
+    //try to connect to that pod on port 8880 and sent a message
+
+
+    //open a websocket connection with any server 
+    let webaddress = gamepodip;
+    let gameport = 8880.to_string();
+
+    let addressandport = webaddress + ":" + &gameport;
+
+    use tungstenite::client::connect;
+    
+    let (mut socket, response) = connect( addressandport ).expect("Can't connect");
+
+    /*
+    println!("Connected to the server");
+    println!("Response HTTP code: {}", response.status());
+    println!("Response contains the following headers:");
+    for (ref header, _value) in response.headers() {
+        println!("* {}", header);
+    }
+    */
+
+    socket.write_message(Message::Text("Hello WebSocket".into())).unwrap();
+    
+    loop {
+        let msg = socket.read_message().expect("Error reading message");
+        println!("Received: {}", msg);
+    }
+
+
+
+    //dont end
+    loop{
+
+
+
+    }
 
 
 
