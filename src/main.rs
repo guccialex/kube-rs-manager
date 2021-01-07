@@ -41,6 +41,47 @@ async fn main() {
     
     let podapi: Api<Pod> = Api::namespaced(client, &namespace);
     
+
+
+    
+    let lp = ListParams::default()
+    .timeout(60)
+    .labels("podtype=gameserver");
+    
+    let result = podapi.list(&lp);
+    let result = block_on(result).unwrap();
+    
+    for item in result{
+        
+        if let Some(status) = item.status{
+            
+            if let Some(podips) = status.pod_ips{
+                
+                let podip = podips[0].ip.clone().unwrap();
+                
+                println!("the pods IP {:?}", podip  );
+                println!("");
+                println!("the pods unique ID {:?}", item.metadata.labels.unwrap().get("gamepodid").unwrap());
+                
+                let podname = item.metadata.name.unwrap();
+                
+                // Delete the pod
+                let deleteparams = DeleteParams::default();
+                //delete the pod
+                let deletedata = podapi.delete(&podname, &deleteparams);
+                let deletedata = block_on(deletedata);
+                
+                println!("getting rid of  pod");
+                
+            }
+        }
+    }
+
+
+
+
+
+    /*
     
     //on startup, delete every old game pod
     let lp = ListParams::default()
@@ -63,22 +104,22 @@ async fn main() {
                 println!("the pods unique ID {:?}", item.metadata.labels.unwrap().get("gamepodid").unwrap());
                 
                 let podname = item.metadata.name.unwrap();
-
+                
                 // Delete the pod
                 let deleteparams = DeleteParams::default();
                 //delete the pod
                 let deletedata = podapi.delete(&podname, &deleteparams);
                 let deletedata = block_on(deletedata);
-            
+                
                 println!("getting rid of  pod");
                 
             }
         }
     }
     
-
-
-
+    
+    
+    
     
     println!("im here");
     
@@ -134,8 +175,59 @@ async fn main() {
     
     
     
+    let sleeptime = time::Duration::from_millis(1000);
+    thread::sleep( sleeptime );
     
     
+    
+    
+    
+    
+    
+    
+    
+    //on startup, delete every old game pod
+    let lp = ListParams::default()
+    .timeout(60)
+    .labels("podtype=gameserver");
+    
+    let result = podapi.list(&lp);
+    let result = block_on(result).unwrap();
+    
+    for item in result{
+        
+        if let Some(status) = item.status{
+            
+            if let Some(podips) = status.pod_ips{
+                
+                let podip = podips[0].ip.clone().unwrap();
+                
+                println!("the pods IP {:?}", podip  );
+                println!("");
+                println!("the pods unique ID {:?}", item.metadata.labels.unwrap().get("gamepodid").unwrap());
+                
+
+
+
+
+                
+                
+                
+            }
+        }
+    }
+
+    */
+    
+    
+    
+    
+    
+    //waits
+    
+    //get every pod
+    
+    //try to connect to those pods on port 4000
     
     
     
@@ -348,9 +440,9 @@ impl Main{
     
     //return the port to the game given the password to the match
     fn connect_to_game(&mut self, matchpassword: MatchPassword) -> (u16, String){
-
-
-
+        
+        
+        
         //the pods expose port 4000 for their connection with the matchmaking server
         //and expose port 3000 for connecting to the external players
         
@@ -449,7 +541,7 @@ impl Main{
                     unhealthypods.push(podid.clone());
                 }
             }
-
+            
             //wait some time or something for it to get to checking its incoming websocket messages
             //and then responding
             let sleeptime = time::Duration::from_millis(300);
