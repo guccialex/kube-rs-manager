@@ -43,7 +43,7 @@ async fn main() {
     
 
 
-    
+
     let lp = ListParams::default()
     .timeout(60)
     .labels("podtype=gameserver");
@@ -60,18 +60,8 @@ async fn main() {
                 let podip = podips[0].ip.clone().unwrap();
                 
                 println!("the pods IP {:?}", podip  );
-                println!("");
-                println!("the pods unique ID {:?}", item.metadata.labels.unwrap().get("gamepodid").unwrap());
                 
                 let podname = item.metadata.name.unwrap();
-                
-                // Delete the pod
-                let deleteparams = DeleteParams::default();
-                //delete the pod
-                let deletedata = podapi.delete(&podname, &deleteparams);
-                let deletedata = block_on(deletedata);
-                
-                println!("getting rid of  pod");
                 
             }
         }
