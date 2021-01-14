@@ -19,7 +19,6 @@ use tungstenite::handshake::server::{Request, Response};
 use tungstenite::accept_hdr;
 
 
-
 use std::net::TcpListener;
 use std::net::TcpStream;
 use std::process::Command;
@@ -40,18 +39,16 @@ async fn main() {
     
     std::env::set_var("RUST_LOG", "info,kube=debug");
     
-    
+
+    let namespace = std::env::var("NAMESPACE").unwrap_or("default".into());
 
     //connect to the kubernetes pod and service apis
     let client = Client::try_default();
     let client = block_on(client).unwrap();
-    
-    let namespace = std::env::var("NAMESPACE").unwrap_or("default".into());
     let podapi: Api<Pod> = Api::namespaced(client, &namespace);
     
     let client2 = Client::try_default();
     let client2 = block_on(client2).unwrap();
-    
     let serviceapi: Api<Service> = Api::namespaced(client2, &namespace);
     
     
@@ -100,11 +97,7 @@ async fn main() {
     
 
     loop{
-
-
-
     }
-    
     
 }
 
@@ -120,7 +113,7 @@ fn create_gamepod(podapi: & kube::Api<k8s_openapi::api::core::v1::Pod>, gamepodi
     
     //need to create a new one even if one already exists
     /*
-    //just dont make it if it already exists
+    //just dont make it if it already exists or one is already being created
     {
         
         let lp = ListParams::default()
@@ -339,6 +332,8 @@ fn create_external_load_balancer(serviceapi: & kube::Api<k8s_openapi::api::core:
 #[get("/create_private_game")]
 fn create_private_game( state: State<Arc<Mutex<Main>>> ) -> String {
 
+    println!("request to join private game");
+
     let gametoconnectto = GameToConnectTo::createprivategame;
     
     let game = state.inner();
@@ -351,6 +346,8 @@ fn create_private_game( state: State<Arc<Mutex<Main>>> ) -> String {
 #[get("/join_public_game")]
 fn join_public_game( state: State<Arc<Mutex<Main>>> ) -> String {
 
+    println!("request to join public game");
+
     let gametoconnectto = GameToConnectTo::joinpublicgame;
     
     let game = state.inner();
@@ -362,6 +359,9 @@ fn join_public_game( state: State<Arc<Mutex<Main>>> ) -> String {
 
 #[get("/join_private_game/<password>")]
 fn join_private_game( password: String, state: State<Arc<Mutex<Main>>> ) -> String {
+
+
+    println!("request to join private game");
 
     let gametoconnectto = GameToConnectTo::joinprivategame(password);
     
