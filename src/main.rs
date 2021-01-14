@@ -102,7 +102,7 @@ async fn main() {
 }
 
 
-
+/*
 //try to create a new gamepod server
 //with this id
 fn create_gamepod(podapi: & kube::Api<k8s_openapi::api::core::v1::Pod>, gamepodid: u16 ){
@@ -319,6 +319,7 @@ fn create_external_load_balancer(serviceapi: & kube::Api<k8s_openapi::api::core:
     
     
 }
+*/
 
 
 
@@ -359,7 +360,6 @@ fn join_public_game( state: State<Arc<Mutex<Main>>> ) -> String {
 
 #[get("/join_private_game/<password>")]
 fn join_private_game( password: String, state: State<Arc<Mutex<Main>>> ) -> String {
-
 
     println!("request to join private game");
 
@@ -509,8 +509,8 @@ impl Main{
         let resp = reqwest::blocking::get("https://httpbin.org/ip").unwrap().json::<HashMap<String, String>>().unwrap();
 
         println!(" {:?}", resp);
-
     }
+    
 }
 
 

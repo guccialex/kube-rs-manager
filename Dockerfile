@@ -8,4 +8,4 @@ RUN rustup update nightly
 RUN rustup default nightly
 
 
-CMD cargo run
+CMD cargo run --release
