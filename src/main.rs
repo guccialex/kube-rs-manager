@@ -440,18 +440,15 @@ impl Main{
     fn get_unallocated_pod_and_set_password(&mut self, password: String) -> u32{
 
 
+        //let podid = self.unallocatedpods.pop().unwrap();
 
-
-        let podid = self.unallocatedpods.pop().unwrap();
-
-        self.set_pods_password(podid, password);
-
+        //self.set_pods_password(podid, password);
 
         println!("setting password of unallocated pod");
 
+        //return podid;
 
-        return podid;
-
+        return 12;
 
     }
 
@@ -485,18 +482,9 @@ impl Main{
 
                 self.get_unallocated_pod_and_set_password(password);
 
-
-
             }
 
-
-
-
         }
-
-
-
-
 
 
 
@@ -518,12 +506,9 @@ impl Main{
 
     fn tick(&mut self){
 
-
         let resp = reqwest::blocking::get("https://httpbin.org/ip").unwrap().json::<HashMap<String, String>>().unwrap();
 
         println!(" {:?}", resp);
-
-
 
     }
 }
