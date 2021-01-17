@@ -323,7 +323,7 @@ impl Main{
         .collect();
         
 
-        let address = "http://".to_string() + &podip.clone() + ":4000";
+        let address = "http://".to_string() + &podip.clone() + ":8000";
 
 
         let resp = reqwest::blocking::get(  &(address.to_string() + "/set_password/"+ &passwordtoset)  );
@@ -491,7 +491,7 @@ impl Main{
             
             //self.podips.insert(podid, podip);
 
-            let address = "http://".to_string() + &podip.clone() + ":4000";
+            let address = "http://".to_string() + &podip.clone() + ":8000";
 
             println!("calling the pod with an IP to get its state {:?}", address);
             
