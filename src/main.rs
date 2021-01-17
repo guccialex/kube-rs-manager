@@ -497,13 +497,16 @@ impl Main{
             
             //self.podips.insert(podid, podip);
 
-            let address = &("http://".to_string() + &podip.clone() + ":4000/get_state");
+            let address = "http://".to_string() + &podip.clone() + ":4000";
 
             println!("calling the pod with an IP to get its state {:?}", address);
             
-            if let Ok(result) = reqwest::get( address ).await{
+            if let Ok(result) = reqwest::get( &(address.clone() + "/get_state") ).await{
 
                 let body = result.text().await.unwrap();
+
+
+                println!("the body result {:?}", body);
 
 
                 if let Ok(statusnumber) = body.parse::<u32>(){
@@ -518,20 +521,17 @@ impl Main{
                     //if the password is set, and there are players left to be assigned
                     else if statusnumber == 2{
                         
-                        
-                        let password = reqwest::get( &(podip.clone() + ":4000/get_password") )
+                        let password = reqwest::get( &(address + "/get_password") )
                         .await
                         .unwrap()
                         .text()
                         .await
                         .unwrap();
-    
                         
                         self.openpodandpassword.insert(password, podid);
                         self.podips.insert(podid, podip);
                         
                     }
-                    //else
                     else if statusnumber == 3{
                     }
                     else{
@@ -539,16 +539,8 @@ impl Main{
                 }
 
                 println!("status {:?}", body);
-
-
-            }
-            
-            
-            
-            
+            }    
         }
-        
-        
         
         
         
