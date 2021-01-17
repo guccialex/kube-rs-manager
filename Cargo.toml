@@ -8,11 +8,11 @@ edition = "2018"
 
 [dependencies]
 kube = "*"
-kube-runtime = "*"
+#kube-runtime = "*"
 k8s-openapi = { version = "*", default-features = false, features = ["v1_19"] }
 
 
-futures = "*"
+#futures = "*"
 
 serde_json = "*"
 
@@ -25,4 +25,7 @@ tungstenite = "*"
 rocket = "*"
 
 
-reqwest = { version = "*" }
+reqwest = { version = "*", features = ["blocking", "json"] }
+
+
+rand = "*"

@@ -2,7 +2,6 @@
 #[macro_use] extern crate rocket;
 
 
-use futures::executor::block_on;
 use kube::{
     api::{Api, DeleteParams, ListParams, Meta, PostParams, WatchEvent},
     Client,
@@ -54,10 +53,7 @@ async fn main() {
     let serviceapi: Api<Service> = Api::namespaced(client2, &namespace);
     
     
-    
-    
-    
-    
+
     
     
     let mutexmain = Arc::new(tokio::sync::Mutex::new(Main::new(podapi, serviceapi)));
@@ -98,27 +94,15 @@ async fn main() {
     let copiedmutexmain = mutexmain.clone();      
     
     
-    tokio::spawn(async move {
-        
-        
-        /*
+    thread::spawn(move || {
         
         rocket::ignite()
         .manage(copiedmutexmain)
         .mount("/", routes![join_private_game, join_public_game, create_private_game ])
         .launch();
         
-        */
-        
     });
     
-    
-    /*
-    thread::spawn(move || {
-        
-        
-    });
-    */
     
     loop{
     }
@@ -179,7 +163,6 @@ async fn create_gamepod(podapi: & kube::Api<k8s_openapi::api::core::v1::Pod>, ga
 
 
 //create an external load balancer for this gamepodid
-
 async fn create_external_load_balancer(serviceapi: & kube::Api<k8s_openapi::api::core::v1::Service>, gamepodid: u32 ) {
     
     println!("making load balancer {:?}", gamepodid);
@@ -288,22 +271,19 @@ use std::collections::{HashMap, HashSet};
 struct Main{
     
     
-    
     //the mapping of each pod to its IP
     podips: HashMap< u32, String >,
-    
     
     //the pods that dont have a password set yet
     unallocatedpods: Vec<u32>,
     
     //the map of each password to the gamepods id
     openpodandpassword: HashMap<String, u32>,
+
+
+    nodeidtoaddressandport: HashMap<u32, String>,
     
     
-    
-    
-    //map the pod id to the pods NodePort
-    //nodeportofpod: HashMap<u32, u16>,
     
     
     
@@ -323,6 +303,8 @@ impl Main{
             
             unallocatedpods: Vec::new(),
             openpodandpassword: HashMap::new(),
+
+            nodeidtoaddressandport: HashMap::new(),
             
             
             podapi: podapi,
@@ -330,33 +312,34 @@ impl Main{
         }
     }
     
-    //get a nodes ip and a port
-    fn get_nodes_ip_and_pods_port(&self, podid: u32) -> String{
-        "smmm".to_string()
-    }
-    
-    //set the password of a pod
-    fn set_pods_password(&mut self, podid: u32, password: String){
-        
-        
-        
-        
-    }
     
     
     //set the password of an unallocated pod, and return the id of the pod set
-    fn get_unallocated_pod_and_set_password(&mut self, password: String) -> u32{
+    fn get_unallocated_pod_and_set_password(&mut self) -> (u32, String){
         
         
-        //let podid = self.unallocatedpods.pop().unwrap();
+        let podid = self.unallocatedpods.pop().unwrap();
         
-        //self.set_pods_password(podid, password);
+        let podip = self.podips.remove(&podid).unwrap();
+                  
+
+        use rand::{distributions::Alphanumeric, Rng};
+
+        let passwordtoset: String = rand::thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(7)
+        .map(char::from)
+        .collect();
+        
+
+        let resp = reqwest::blocking::get(&(podip.clone() + ":4000/set_password/"+ &passwordtoset));
+
         
         println!("setting password of unallocated pod");
         
+
         //return podid;
-        
-        return 12;
+        return (podid, passwordtoset);
         
     }
     
@@ -366,6 +349,10 @@ impl Main{
     //as a JSON value
     fn connect_to_game(&mut self, gametoconnectto: GameToConnectTo) -> String{
         
+
+        let mut thepassword: String =  "dsas".to_string();
+        let mut thepodid: u32 = 12;
+
         
         if let GameToConnectTo::joinprivategame(password) = gametoconnectto{
             
@@ -373,47 +360,76 @@ impl Main{
             //if a pod with that password exists and is open, return it 
             if let Some(podid) = self.openpodandpassword.remove(&password){
                 
-                let address = self.get_nodes_ip_and_pods_port(podid);
+                thepodid = podid;
+                thepassword = password;
+
+            }
+            else{
+
+                //this isnt a valid "game to connect to"
+                //so return to the client requesting, "no" to let them know its invalid
+
+                return "no".to_string();
+            }
+            
+        }
+        else if let GameToConnectTo::joinpublicgame = gametoconnectto{
+
+            let password = "password".to_string();
+
+            //if a pod with that password exists and is open, return it 
+            if let Some(podid) = self.openpodandpassword.remove(&password){
                 
-                let connectedtogame = ConnectedToGame{
-                    addressandport: address,
-                    gamepassword: password,
-                };
-                
-                let toreturn = serde_json::to_string(&connectedtogame).unwrap();
-                
-                return toreturn;
+                thepodid = podid;
+                thepassword = password;
+
             }
             //otherwise, set the password of an unallocated pod to that password
             //and return that pod
             else{
-                
-                self.get_unallocated_pod_and_set_password(password);
-                
+
+                let (podid, password) = self.get_unallocated_pod_and_set_password();
+
+                thepodid = podid;
+                thepassword = password;
+
             }
-            
+
+
+        }
+        else if let GameToConnectTo::createprivategame = gametoconnectto{
+                
+            let (podid, password) = self.get_unallocated_pod_and_set_password();
+
+            thepodid = podid;
+            thepassword = password;
+
         }
         
-        
-        
-        
-        
-        
+
+
+        //maybe before returning, send a message to the pod, that a player has just been allocated to it
+
+
+        let address = self.nodeidtoaddressandport.get(&thepodid).unwrap().to_string();
+
         let connectedtogame = ConnectedToGame{
-            addressandport: "google.com".to_string(),
-            gamepassword: "fakepassword".to_string(),
+            addressandport: address,
+            gamepassword: thepassword,
         };
         
         let toreturn = serde_json::to_string(&connectedtogame).unwrap();
         
         return toreturn;
+
+        
         
     }
     
     
     
     async fn tick(&mut self){
-                
+        
         
         //a list of every pod with an ip mapped by its ID
         let mut podswithips: HashMap<u32, String> = HashMap::new();
@@ -462,32 +478,69 @@ impl Main{
                 create_gamepod(&self.podapi, x).await;
             }            
         }
-
-
-
+        
+        
+        
         //clear the list of unallocated pods
         self.unallocatedpods = Vec::new();
         //and the list of open pods with a password set
         self.openpodandpassword = HashMap::new();
-
+        
         self.podips = HashMap::new();
-
+        
         
         //for every pod with an ip
         //get its state        
         for (podid, podip) in podswithips{
-
+            
             //self.podips.insert(podid, podip);
             
             println!("calling the pod with an IP to get its state");
-
             
-            let body = reqwest::get( &(podip + ":4000/get_state") )
+            let body = reqwest::get( &(podip.clone() + ":4000/get_state") )
             .await
             .unwrap()
             .text()
             .await
             .unwrap();
+            
+            if let Ok(statusnumber) = body.parse::<u32>(){
+                
+                //if the password isnt set
+                if statusnumber == 1{
+                    
+                    self.unallocatedpods.push(podid);
+                    self.podips.insert(podid, podip);
+                    
+                }
+                //if the password is set, and there are players left to be assigned
+                else if statusnumber == 2{
+                    
+                    
+                    let password = reqwest::get( &(podip.clone() + ":4000/get_password") )
+                    .await
+                    .unwrap()
+                    .text()
+                    .await
+                    .unwrap();
+
+                    
+                    self.openpodandpassword.insert(password, podid);
+                    self.podips.insert(podid, podip);
+                    
+                }
+                //else
+                else if statusnumber == 3{
+                }
+                else{
+                }
+                
+                
+                
+            }
+            
+            
+            println!("status {:?}", body);
             
         }
         
@@ -499,9 +552,11 @@ impl Main{
         
         
         //get every load balancer
-
+        
         let mut load_balancers: HashSet<u32> = HashSet::new();
         
+        //get the active node balancers
+        //TODO: and use it to set the pods by ID to their address and nodeport
         
         {
             
@@ -514,30 +569,30 @@ impl Main{
             for item in result{
                 
                 if let Some(labels) = item.metadata.labels{
-
+                    
                     if let Some(exposerid) = labels.get("serviceid"){
-
+                        
                         println!("serviceid {:?}", exposerid);
-
+                        
                         load_balancers.insert( exposerid.parse::<u32>().unwrap() );
-
+                        
                     }
                 }
             }
         }
         
-
+        
         //make load balancers that dont exist
         for x in 0..5{
-
+            
             if load_balancers.contains(&x){
-
+                
                 continue;
             }
             else{
-
+                
                 create_external_load_balancer( &self.serviceapi, x).await;
-
+                
             }
         }
         
