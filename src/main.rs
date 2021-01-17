@@ -496,10 +496,12 @@ impl Main{
         for (podid, podip) in podswithips{
             
             //self.podips.insert(podid, podip);
+
+            let address = &("http://".to_string() + &podip.clone() + ":4000/get_state");
+
+            println!("calling the pod with an IP to get its state {:?}", address);
             
-            println!("calling the pod with an IP to get its state");
-            
-            let body = reqwest::get( &(podip.clone() + ":4000/get_state") )
+            let body = reqwest::get( address )
             .await
             .unwrap()
             .text()
