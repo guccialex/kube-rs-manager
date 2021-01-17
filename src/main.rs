@@ -136,7 +136,7 @@ async fn create_gamepod(podapi: & kube::Api<k8s_openapi::api::core::v1::Pod>, ga
         "spec": {
             "containers": [{
                 "name": "container",
-                "image": "gcr.io/level-unfolding-299521/github.com/guccialex/ccp-websocket-server@sha256:eab3d711aae6bb1bf96e8bc9d0f6466470d23c4f571d9be7b69f52e624517757"
+                "image": "gcr.io/level-unfolding-299521/github.com/guccialex/ccp-websocket-server@sha256:1efdd5f6b5c08534fd3e162abb5f2861865e1f5a0b3da06c475702bba5ebde97"
             }],
         }
     })).unwrap();
