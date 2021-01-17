@@ -501,50 +501,50 @@ impl Main{
 
             println!("calling the pod with an IP to get its state {:?}", address);
             
-            let body = reqwest::get( address )
-            .await
-            .unwrap()
-            .text()
-            .await
-            .unwrap();
-            
-            if let Ok(statusnumber) = body.parse::<u32>(){
-                
-                //if the password isnt set
-                if statusnumber == 1{
-                    
-                    self.unallocatedpods.push(podid);
-                    self.podips.insert(podid, podip);
-                    
-                }
-                //if the password is set, and there are players left to be assigned
-                else if statusnumber == 2{
-                    
-                    
-                    let password = reqwest::get( &(podip.clone() + ":4000/get_password") )
-                    .await
-                    .unwrap()
-                    .text()
-                    .await
-                    .unwrap();
+            if let Ok(result) = reqwest::get( address ).await{
 
-                    
-                    self.openpodandpassword.insert(password, podid);
-                    self.podips.insert(podid, podip);
-                    
-                }
-                //else
-                else if statusnumber == 3{
-                }
-                else{
-                }
+                let body = result.text().await.unwrap();
+
+
+                if let Ok(statusnumber) = body.parse::<u32>(){
                 
-                
-                
+                    //if the password isnt set
+                    if statusnumber == 1{
+                        
+                        self.unallocatedpods.push(podid);
+                        self.podips.insert(podid, podip);
+                        
+                    }
+                    //if the password is set, and there are players left to be assigned
+                    else if statusnumber == 2{
+                        
+                        
+                        let password = reqwest::get( &(podip.clone() + ":4000/get_password") )
+                        .await
+                        .unwrap()
+                        .text()
+                        .await
+                        .unwrap();
+    
+                        
+                        self.openpodandpassword.insert(password, podid);
+                        self.podips.insert(podid, podip);
+                        
+                    }
+                    //else
+                    else if statusnumber == 3{
+                    }
+                    else{
+                    }
+                }
+
+                println!("status {:?}", body);
+
+
             }
             
             
-            println!("status {:?}", body);
+            
             
         }
         
