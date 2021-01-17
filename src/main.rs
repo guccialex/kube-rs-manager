@@ -70,8 +70,8 @@ async fn main() {
         //websocket loop call it
         
         loop {
-            
-            println!("herereeeee");
+
+            println!("ticking");
             
             //every second
             let sleeptime = time::Duration::from_millis(1000);
@@ -120,11 +120,8 @@ async fn create_gamepod(podapi: & kube::Api<k8s_openapi::api::core::v1::Pod>, ga
     let podname = "gamepod".to_string() + &gamepodid.to_string();
     
     
-    
-    
-    
+
     // Create the pod
-    
     let pod: Pod = serde_json::from_value(serde_json::json!({
         "apiVersion": "v1",
         "kind": "Pod",
@@ -147,16 +144,10 @@ async fn create_gamepod(podapi: & kube::Api<k8s_openapi::api::core::v1::Pod>, ga
     
     
     
-    
-    
-    
     let postparams = PostParams::default();
     
     
     podapi.create(&postparams, &pod).await;
-    
-    
-    
     
 }
 
@@ -332,7 +323,10 @@ impl Main{
         .collect();
         
 
-        let resp = reqwest::blocking::get(&(podip.clone() + ":4000/set_password/"+ &passwordtoset));
+        let address = "http://".to_string() + &podip.clone() + ":4000";
+
+
+        let resp = reqwest::blocking::get(  &(address.to_string() + "/set_password/"+ &passwordtoset)  );
 
         
         println!("setting password of unallocated pod");
@@ -449,7 +443,6 @@ impl Main{
             let result = self.podapi.list(&lp).await.unwrap();
             
             
-            
             for item in result{
                 
                 let id = item.metadata.labels.clone().unwrap().get("gameserverid").unwrap().clone();
@@ -465,7 +458,6 @@ impl Main{
                         
                         podswithips.insert(id, ip);
                     }
-                    
                 }
             }
         }
@@ -489,6 +481,8 @@ impl Main{
         self.openpodandpassword = HashMap::new();
         
         self.podips = HashMap::new();
+
+        println!("podips {:?}", podswithips);
         
         
         //for every pod with an ip
@@ -504,9 +498,6 @@ impl Main{
             if let Ok(result) = reqwest::get( &(address.clone() + "/get_state") ).await{
 
                 let body = result.text().await.unwrap();
-
-
-                println!("the body result {:?}", body);
 
 
                 if let Ok(statusnumber) = body.parse::<u32>(){
@@ -538,7 +529,7 @@ impl Main{
                     }
                 }
 
-                println!("status {:?}", body);
+                println!("status body result {:?}", body);
             }    
         }
         
@@ -555,7 +546,6 @@ impl Main{
         //TODO: and use it to set the pods by ID to their address and nodeport
         
         {
-            
             let lp = ListParams::default()
             .timeout(2)
             .labels( "servicetype=gamepodexposer" );
@@ -586,13 +576,9 @@ impl Main{
                 continue;
             }
             else{
-                
                 create_external_load_balancer( &self.serviceapi, x).await;
-                
             }
         }
-        
-        
         
         
     }
