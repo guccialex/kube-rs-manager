@@ -8,7 +8,7 @@ metadata:
 spec:
   containers:
     - name: kube-rs-manager
-      image: gcr.io/level-unfolding-299521/github.com/guccialex/kube-rs-manager@sha256:a0f9669246bd9aaadd16de8b2f570692e7f89eb5daaa9e582351d9a7362709d2
+      image: gcr.io/level-unfolding-299521/github.com/guccialex/kube-rs-manager@sha256:3fd47558f84ab2d6329c5cf3034fc4e7008488ac70de107bfe77e553e1c620b7
       ports:
         - name: kube-rs-manager
           containerPort: 8000
