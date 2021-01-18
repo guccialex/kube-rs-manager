@@ -53,48 +53,16 @@ async fn main() {
     let serviceapi: Api<Service> = Api::namespaced(client2, &namespace);
     
     
-
     
-    
-    let mutexmain = Arc::new(tokio::sync::Mutex::new(Main::new(podapi, serviceapi)));
-    
-    
-    //a new thread that ticks the main every second
-    let copiedmutexmain = mutexmain.clone();
-    
-    
-    
-    tokio::spawn(async move {
-        
-        //this loops to make sure the mutex main does what the functions says it does when the functions in the
-        //websocket loop call it
-        
-        loop {
-
-            println!("ticking");
-            
-            //every second
-            let sleeptime = time::Duration::from_millis(1000);
-            thread::sleep( sleeptime );
-            
-            //unlock the mutex main while handling this message
-            
-            let mut main = copiedmutexmain.lock().await;
-            
-            main.tick().await;
-            
-        };
-        
-    });
+    let mutexmain = Arc::new(Mutex::new(Main::new(podapi, serviceapi)));
     
     
     
     //listen for clients who want to be assigned a game on port 8000
-    
     let copiedmutexmain = mutexmain.clone();      
     
     
-    thread::spawn(move || {
+    tokio::spawn(async move {
         
         rocket::ignite()
         .manage(copiedmutexmain)
@@ -103,9 +71,35 @@ async fn main() {
         
     });
     
+
+
+
+    //a new thread that ticks the main every second
+    let copiedmutexmain = mutexmain.clone();
+
+    //create an execution environment for the async in this thread
+    //i dont need the mutex to be a tokio mutex
     
-    loop{
-    }
+    
+    //this loops to make sure the mutex main does what the functions says it does when the functions in the
+    //websocket loop call it
+    
+    loop {
+        
+        println!("ticking");
+        
+        //every second
+        let sleeptime = time::Duration::from_millis(3000);
+        thread::sleep( sleeptime );
+        
+        //unlock the mutex main while handling this message
+        
+        let mut main = copiedmutexmain.lock().unwrap();
+        
+        main.tick().await;
+    };
+
+    
     
 }
 
@@ -120,7 +114,7 @@ async fn create_gamepod(podapi: & kube::Api<k8s_openapi::api::core::v1::Pod>, ga
     let podname = "gamepod".to_string() + &gamepodid.to_string();
     
     
-
+    
     // Create the pod
     let pod: Pod = serde_json::from_value(serde_json::json!({
         "apiVersion": "v1",
@@ -148,7 +142,7 @@ async fn create_gamepod(podapi: & kube::Api<k8s_openapi::api::core::v1::Pod>, ga
     
     
     podapi.create(&postparams, &pod).await;
-
+    
 }
 
 
@@ -270,8 +264,8 @@ struct Main{
     
     //the map of each password to the gamepods id
     openpodandpassword: HashMap<String, u32>,
-
-
+    
+    
     nodeidtoaddressandport: HashMap<u32, String>,
     
     
@@ -294,7 +288,7 @@ impl Main{
             
             unallocatedpods: Vec::new(),
             openpodandpassword: HashMap::new(),
-
+            
             nodeidtoaddressandport: HashMap::new(),
             
             
@@ -312,26 +306,26 @@ impl Main{
         let podid = self.unallocatedpods.pop().unwrap();
         
         let podip = self.podips.remove(&podid).unwrap();
-                  
-
+        
+        
         use rand::{distributions::Alphanumeric, Rng};
-
+        
         let passwordtoset: String = rand::thread_rng()
         .sample_iter(&Alphanumeric)
         .take(7)
         .map(char::from)
         .collect();
         
-
+        
         let address = "http://".to_string() + &podip.clone() + ":8000";
-
-
+        
+        
         let resp = reqwest::blocking::get(  &(address.to_string() + "/set_password/"+ &passwordtoset)  );
-
+        
         
         println!("setting password of unallocated pod");
         
-
+        
         //return podid;
         return (podid, passwordtoset);
         
@@ -343,10 +337,10 @@ impl Main{
     //as a JSON value
     fn connect_to_game(&mut self, gametoconnectto: GameToConnectTo) -> String{
         
-
+        
         let thepassword: String;
         let thepodid: u32;
-
+        
         
         if let GameToConnectTo::joinprivategame(password) = gametoconnectto{
             
@@ -356,59 +350,59 @@ impl Main{
                 
                 thepodid = podid;
                 thepassword = password;
-
+                
             }
             else{
-
+                
                 //this isnt a valid "game to connect to"
                 //so return to the client requesting, "no" to let them know its invalid
-
+                
                 return "no".to_string();
             }
             
         }
         else if let GameToConnectTo::joinpublicgame = gametoconnectto{
-
+            
             let password = "password".to_string();
-
+            
             //if a pod with that password exists and is open, return it 
             if let Some(podid) = self.openpodandpassword.remove(&password){
                 
                 thepodid = podid;
                 thepassword = password;
-
+                
             }
             //otherwise, set the password of an unallocated pod to that password
             //and return that pod
             else{
-
+                
                 let (podid, password) = self.get_unallocated_pod_and_set_password();
-
+                
                 thepodid = podid;
                 thepassword = password;
-
+                
             }
-
-
+            
+            
         }
         else if let GameToConnectTo::createprivategame = gametoconnectto{
-                
+            
             let (podid, password) = self.get_unallocated_pod_and_set_password();
-
+            
             thepodid = podid;
             thepassword = password;
-
+            
         }
         else{
             panic!("hmm");
         }
         
-
+        
         //maybe before returning, send a message to the pod, that a player has just been allocated to it
-
-
+        
+        
         let address = self.nodeidtoaddressandport.get(&thepodid).unwrap().to_string();
-
+        
         let connectedtogame = ConnectedToGame{
             addressandport: address,
             gamepassword: thepassword,
@@ -417,7 +411,7 @@ impl Main{
         let toreturn = serde_json::to_string(&connectedtogame).unwrap();
         
         return toreturn;
-
+        
         
         
     }
@@ -481,7 +475,7 @@ impl Main{
         self.openpodandpassword = HashMap::new();
         
         self.podips = HashMap::new();
-
+        
         println!("podips {:?}", podswithips);
         
         
@@ -490,18 +484,18 @@ impl Main{
         for (podid, podip) in podswithips{
             
             //self.podips.insert(podid, podip);
-
+            
             let address = "http://".to_string() + &podip.clone() + ":8000";
-
+            
             println!("calling the pod with an IP to get its state {:?}", address);
             
             if let Ok(result) = reqwest::get( &(address.clone() + "/get_state") ).await{
-
-                let body = result.text().await.unwrap();
-
-
-                if let Ok(statusnumber) = body.parse::<u32>(){
                 
+                let body = result.text().await.unwrap();
+                
+                
+                if let Ok(statusnumber) = body.parse::<u32>(){
+                    
                     //if the password isnt set
                     if statusnumber == 1{
                         
@@ -528,14 +522,14 @@ impl Main{
                     else{
                     }
                 }
-
+                
                 println!("status body result {:?}", body);
             }
             else{
                 println!("no pod response");
             } 
-
-
+            
+            
         }
         
         

@@ -23,6 +23,7 @@ tokio = { version = "*", features = ["full"] }
 tungstenite = "*"
 
 rocket = "*"
+#rocket = { git ="https://github.com/SergioBenitez/Rocket" }
 
 
 reqwest = { version = "*", features = ["blocking", "json"] }
