@@ -10,7 +10,7 @@ use kube::{
 
 use k8s_openapi::api::core::v1::Pod;
 use k8s_openapi::api::core::v1::Service;
-use k8s_openapi::api::batch::v1::Job;
+use k8s_openapi::api::core::v1::Node;
 
 
 use tungstenite::{Message};
@@ -44,6 +44,7 @@ async fn main() {
     //connect to the kubernetes pod and service apis
     let client = Client::try_default();
     let client2 = Client::try_default();
+    let client3 = Client::try_default();
     
     
     let client = client.await.unwrap();//block_on(client).unwrap();
@@ -52,9 +53,12 @@ async fn main() {
     let client2 = client2.await.unwrap();
     let serviceapi: Api<Service> = Api::namespaced(client2, &namespace);
     
+    let client3 = client3.await.unwrap();
+    let nodeapi: Api<Node> = Api::namespaced(client3, &namespace);
     
     
-    let mutexmain = Arc::new(Mutex::new(Main::new(podapi, serviceapi)));
+    
+    let mutexmain = Arc::new(Mutex::new(Main::new(podapi, serviceapi, nodeapi)));
     
     
     
@@ -71,18 +75,20 @@ async fn main() {
         
     });
     
-
-
-
+    
+    
+    
     //a new thread that ticks the main every second
     let copiedmutexmain = mutexmain.clone();
-
+    
     //create an execution environment for the async in this thread
     //i dont need the mutex to be a tokio mutex
     
     
     //this loops to make sure the mutex main does what the functions says it does when the functions in the
     //websocket loop call it
+    
+    
     
     loop {
         
@@ -98,7 +104,7 @@ async fn main() {
         
         main.tick().await;
     };
-
+    
     
     
 }
@@ -130,7 +136,7 @@ async fn create_gamepod(podapi: & kube::Api<k8s_openapi::api::core::v1::Pod>, ga
         "spec": {
             "containers": [{
                 "name": "container",
-                "image": "gcr.io/level-unfolding-299521/github.com/guccialex/ccp-websocket-server@sha256:e3005758bfe0ca2fd7a3b913e2e5bc76b42967f44aacc9a3b477ab31d63393d1"
+                "image": "gcr.io/level-unfolding-299521/github.com/guccialex/ccp-websocket-server@sha256:a1f39e8e48892396df7a109e9cdf52832069b252967ed44bffa02211015b40da"
             }],
         }
     })).unwrap();
@@ -256,7 +262,7 @@ use std::collections::{HashMap, HashSet};
 struct Main{
     
     
-    //the mapping of each pod to its IP
+    //the mapping of each pod to its internal IP
     podips: HashMap< u32, String >,
     
     //the pods that dont have a password set yet
@@ -266,7 +272,12 @@ struct Main{
     openpodandpassword: HashMap<String, u32>,
     
     
-    nodeidtoaddressandport: HashMap<u32, String>,
+    //the pod id to the external port its opened on
+    podidtoexternalport: HashMap<u32, String>,
+    
+    
+    //the externalIP of a node in this cluster 
+    nodeexternalip: String,
     
     
     
@@ -274,13 +285,14 @@ struct Main{
     
     podapi: Api<Pod>,
     serviceapi: Api<Service>,
+    nodeapi: Api<Node>,
     
 }
 
 impl Main{
     
     
-    fn new(podapi: Api<Pod>, serviceapi: Api<Service>) -> Main{
+    fn new(podapi: Api<Pod>, serviceapi: Api<Service>, nodeapi: Api<Node>) -> Main{
         
         Main{
             
@@ -289,11 +301,14 @@ impl Main{
             unallocatedpods: Vec::new(),
             openpodandpassword: HashMap::new(),
             
-            nodeidtoaddressandport: HashMap::new(),
+            podidtoexternalport: HashMap::new(),
             
+            nodeexternalip: "".to_string(),
             
             podapi: podapi,
             serviceapi: serviceapi,
+            nodeapi: nodeapi,
+            
         }
     }
     
@@ -332,6 +347,19 @@ impl Main{
     }
     
     
+    //tell the pod with this ID that a player was allocated to it
+    fn tell_pod_player_was_allocated(&mut self, podid: u32){
+        
+        if let Some(podip) = self.podips.get(&podid){
+            
+            let address = "http://".to_string() + &podip.clone() + ":8000";
+            
+            if let Ok(result) = reqwest::blocking::get( &(address.clone() + "/assign_player") ){
+            }
+        }
+    }
+    
+    
     //a player who wants to connect to a game
     //join a game and return the address and port and password
     //as a JSON value
@@ -350,10 +378,8 @@ impl Main{
                 
                 thepodid = podid;
                 thepassword = password;
-                
             }
             else{
-                
                 //this isnt a valid "game to connect to"
                 //so return to the client requesting, "no" to let them know its invalid
                 
@@ -382,8 +408,6 @@ impl Main{
                 thepassword = password;
                 
             }
-            
-            
         }
         else if let GameToConnectTo::createprivategame = gametoconnectto{
             
@@ -398,21 +422,32 @@ impl Main{
         }
         
         
-        //maybe before returning, send a message to the pod, that a player has just been allocated to it
         
+        //if theres a valid external node ip and a valid external nodeport for the pod
+        if self.nodeexternalip != ""{
+            if let Some(externalport) = self.podidtoexternalport.get(&thepodid){
+                
+                let externalport = &externalport.clone();
+                
+                //before returning, send a message to the pod, that a player has just been allocated to it
+                self.tell_pod_player_was_allocated(thepodid);
+                
+                
+                let addressandport = "http://".to_string() + &self.nodeexternalip + ":" + externalport;
+                
+                let connectedtogame = ConnectedToGame{
+                    addressandport: addressandport,
+                    gamepassword: thepassword,
+                };
+                
+                let toreturn = serde_json::to_string(&connectedtogame).unwrap();
+                
+                return toreturn;
+            }
+        }
         
-        let address = self.nodeidtoaddressandport.get(&thepodid).unwrap().to_string();
-        
-        let connectedtogame = ConnectedToGame{
-            addressandport: address,
-            gamepassword: thepassword,
-        };
-        
-        let toreturn = serde_json::to_string(&connectedtogame).unwrap();
-        
-        return toreturn;
-        
-        
+
+        return "no".to_string();
         
     }
     
@@ -469,19 +504,16 @@ impl Main{
         
         
         
-        //clear the list of unallocated pods
-        self.unallocatedpods = Vec::new();
-        //and the list of open pods with a password set
-        self.openpodandpassword = HashMap::new();
         
-        self.podips = HashMap::new();
         
-        println!("podips {:?}", podswithips);
+        
+        
+        self.podips = podswithips;
         
         
         //for every pod with an ip
         //get its state        
-        for (podid, podip) in podswithips{
+        for (podid, podip) in &self.podips{
             
             //self.podips.insert(podid, podip);
             
@@ -499,8 +531,7 @@ impl Main{
                     //if the password isnt set
                     if statusnumber == 1{
                         
-                        self.unallocatedpods.push(podid);
-                        self.podips.insert(podid, podip);
+                        self.unallocatedpods.push( *podid);
                         
                     }
                     //if the password is set, and there are players left to be assigned
@@ -513,8 +544,7 @@ impl Main{
                         .await
                         .unwrap();
                         
-                        self.openpodandpassword.insert(password, podid);
-                        self.podips.insert(podid, podip);
+                        self.openpodandpassword.insert(password, *podid);
                         
                     }
                     else if statusnumber == 3{
@@ -534,15 +564,50 @@ impl Main{
         
         
         
+        self.nodeexternalip = "".to_string();
+        
+        //get the address of a random node that i can send back to the client
+        //to route the connection through the nodeport to the pod through
+        {
+            
+            
+            let lp = ListParams::default()
+            .timeout(2);
+            
+            
+            let result = self.nodeapi.list(&lp).await.unwrap();
+            
+            
+            //for the node
+            for item in &result{
+                
+                if let Some(status) = &item.status{
+                    
+                    if let Some(addresses) = &status.addresses{
+                        
+                        //for each address
+                        for address in addresses{
+                            
+                            if address.type_ == "ExternalIP"{
+                                
+                                self.nodeexternalip = address.address.clone();
+                            }
+                        }
+                    }
+                }
+            }
+            
+        }
         
         
         
-        //get every load balancer
         
-        let mut load_balancers: HashSet<u32> = HashSet::new();
+        //get every exposer
+        
+        let mut exposers: HashSet<u32> = HashSet::new();
         
         //get the active node balancers
-        //TODO: and use it to set the pods by ID to their address and nodeport
+        //and use it to set the pods by ID to their exposed nodeport
         
         {
             let lp = ListParams::default()
@@ -551,27 +616,46 @@ impl Main{
             
             let result = self.serviceapi.list(&lp).await.unwrap();
             
-            for item in result{
+            //the list of all exposers
+            for item in &result{
                 
-                if let Some(labels) = item.metadata.labels{
+                if let Some(labels) = &item.metadata.labels{
                     
+                    //the serve by the id of the service, that is associated with the pod id
                     if let Some(exposerid) = labels.get("serviceid"){
                         
-                        println!("serviceid {:?}", exposerid);
                         
-                        load_balancers.insert( exposerid.parse::<u32>().unwrap() );
                         
+                        let exposerid = exposerid.parse::<u32>().unwrap();
+                        exposers.insert( exposerid );
+                        
+                        
+                        
+                        if let Some(specs) = &item.spec{
+                            
+                            if let Some(port) = &specs.ports{
+                                
+                                if let Some(nodeport) = &port[0].node_port{
+                                    
+                                    self.podidtoexternalport.insert(exposerid, nodeport.to_string() );
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
         
         
+        
+        
+        
+        
+        
         //make the load balancers that dont exist
         for x in 0..5{
             
-            if load_balancers.contains(&x){
-                
+            if exposers.contains(&x){
                 continue;
             }
             else{
