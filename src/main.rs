@@ -54,7 +54,7 @@ async fn main() {
     let serviceapi: Api<Service> = Api::namespaced(client2, &namespace);
     
     let client3 = client3.await.unwrap();
-    let nodeapi: Api<Node> = Api::namespaced(client3, &namespace);
+    let nodeapi: Api<Node> = Api::all(client3);
     
     
     
@@ -271,13 +271,11 @@ struct Main{
     //the map of each password to the gamepods id
     openpodandpassword: HashMap<String, u32>,
     
-    
     //the pod id to the external port its opened on
     podidtoexternalport: HashMap<u32, String>,
     
-    
     //the externalIP of a node in this cluster 
-    nodeexternalip: String,
+    nodeexternalip: Option<String>,
     
     
     
@@ -303,7 +301,7 @@ impl Main{
             
             podidtoexternalport: HashMap::new(),
             
-            nodeexternalip: "".to_string(),
+            nodeexternalip: None,
             
             podapi: podapi,
             serviceapi: serviceapi,
@@ -424,7 +422,7 @@ impl Main{
         
         
         //if theres a valid external node ip and a valid external nodeport for the pod
-        if self.nodeexternalip != ""{
+        if let Some(nodeexternalip) = self.nodeexternalip.clone(){
             if let Some(externalport) = self.podidtoexternalport.get(&thepodid){
                 
                 let externalport = &externalport.clone();
@@ -433,7 +431,7 @@ impl Main{
                 self.tell_pod_player_was_allocated(thepodid);
                 
                 
-                let addressandport = "http://".to_string() + &self.nodeexternalip + ":" + externalport;
+                let addressandport = "http://".to_string() + &nodeexternalip + ":" + externalport;
                 
                 let connectedtogame = ConnectedToGame{
                     addressandport: addressandport,
@@ -564,7 +562,7 @@ impl Main{
         
         
         
-        self.nodeexternalip = "".to_string();
+        self.nodeexternalip = None;
         
         //get the address of a random node that i can send back to the client
         //to route the connection through the nodeport to the pod through
@@ -590,7 +588,7 @@ impl Main{
                             
                             if address.type_ == "ExternalIP"{
                                 
-                                self.nodeexternalip = address.address.clone();
+                                self.nodeexternalip = Some(address.address.clone());
                             }
                         }
                     }
