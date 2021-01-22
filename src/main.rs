@@ -38,7 +38,6 @@ impl GlobalValues{
 
         "gcr.io/level-unfolding-299521/github.com/guccialex/ccp-websocket-server@sha256:d11f19af3c3837c117bab60cf3f3d148fb9543bb8a07efcb4e5f5a90ff04b038".to_string()
     }
-
 }
 
 
@@ -472,14 +471,18 @@ impl Main{
     async fn tick(&mut self){
 
 
+        self.podips = HashMap::new();
+        self.unallocatedpods = Vec::new();
+        self.openpodandpassword = HashMap::new();
+        self.podidtoexternalport = HashMap::new();
+        self.nodeexternalip = None;
 
-        println!("the open pods and password {:?}", self.openpodandpassword);
-        println!("the unallocated pods {:?}", self.unallocatedpods);
+
+        
         
         
         //a list of every pod with an ip mapped by its ID
         let mut podswithips: HashMap<u32, String> = HashMap::new();
-        
         let mut allgamepods = HashSet::new();
         
         //get the list of every pod with an ID and IP
@@ -683,6 +686,12 @@ impl Main{
                 create_external_load_balancer( &self.serviceapi, x).await;
             }
         }
+
+
+
+        println!("the open pods and password {:?}", self.openpodandpassword);
+        println!("the unallocated pods {:?}", self.unallocatedpods);
+        
         
         
     }
