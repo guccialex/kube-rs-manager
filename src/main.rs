@@ -27,6 +27,20 @@ use std::sync::Mutex;
 
 
 
+struct GlobalValues{
+
+
+}
+
+impl GlobalValues{
+
+    fn get_gamepod_image() -> String{
+
+        "gcr.io/level-unfolding-299521/github.com/guccialex/ccp-websocket-server@sha256:d11f19af3c3837c117bab60cf3f3d148fb9543bb8a07efcb4e5f5a90ff04b038".to_string()
+    }
+
+}
+
 
 
 
@@ -72,7 +86,6 @@ async fn main() {
         .manage(copiedmutexmain)
         .mount("/", routes![join_private_game, join_public_game, create_private_game ])
         .launch();
-        
     });
     
     
@@ -81,31 +94,22 @@ async fn main() {
     //a new thread that ticks the main every second
     let copiedmutexmain = mutexmain.clone();
     
-    //create an execution environment for the async in this thread
-    //i dont need the mutex to be a tokio mutex
-    
-    
-    //this loops to make sure the mutex main does what the functions says it does when the functions in the
-    //websocket loop call it
-    
     
     
     loop {
-        
         println!("ticking");
         
         //every second
-        let sleeptime = time::Duration::from_millis(3000);
+        let sleeptime = time::Duration::from_millis(1000);
         thread::sleep( sleeptime );
         
         //unlock the mutex main while handling this message
         
-        let mut main = copiedmutexmain.lock().unwrap();
-        
-        main.tick().await;
+        {
+            let mut main = copiedmutexmain.lock().unwrap();
+            main.tick().await;
+        }
     };
-    
-    
     
 }
 
@@ -136,11 +140,10 @@ async fn create_gamepod(podapi: & kube::Api<k8s_openapi::api::core::v1::Pod>, ga
         "spec": {
             "containers": [{
                 "name": "container",
-                "image": "gcr.io/level-unfolding-299521/github.com/guccialex/ccp-websocket-server@sha256:a1f39e8e48892396df7a109e9cdf52832069b252967ed44bffa02211015b40da"
+                "image": GlobalValues::get_gamepod_image(),
             }],
         }
     })).unwrap();
-    
     
     
     
@@ -148,7 +151,6 @@ async fn create_gamepod(podapi: & kube::Api<k8s_openapi::api::core::v1::Pod>, ga
     
     
     podapi.create(&postparams, &pod).await;
-    
 }
 
 
@@ -185,10 +187,12 @@ async fn create_external_load_balancer(serviceapi: & kube::Api<k8s_openapi::api:
                 "gameserverid": gamepodid.to_string(),
             },
             
+            //expose port 4000
             "ports": [{
                 "protocol": "TCP",
-                "port": 80,
-                "targetPort": 80,
+                //the port and target port mean the same thing right? what port to forward the connection on the nodeport
+                "port": 4000,
+                "targetPort": 4000,
             }],
             
         }
@@ -287,6 +291,9 @@ struct Main{
     
 }
 
+use std::error;
+use std::any::Any;
+
 impl Main{
     
     
@@ -311,37 +318,42 @@ impl Main{
     }
     
     
-    
     //set the password of an unallocated pod, and return the id of the pod set
-    fn get_unallocated_pod_and_set_password(&mut self) -> (u32, String){
+    fn get_unallocated_pod_and_set_password(&mut self, maybepassword: Option<&str>) -> Result<(u32, String), Box<error::Error> >{
         
+
+        let podid = self.unallocatedpods.pop().ok_or("error")?;
         
-        let podid = self.unallocatedpods.pop().unwrap();
+        let podip = self.podips.remove(&podid).ok_or("error")?;
         
-        let podip = self.podips.remove(&podid).unwrap();
+
+        let passwordtoset: String;
+
+        //if theres a specific password thats want to be set
+        if let Some(maybepassword) = maybepassword{
+
+            passwordtoset = maybepassword.to_string();
+        }
+        else{
+
+            use rand::{distributions::Alphanumeric, Rng};
         
-        
-        use rand::{distributions::Alphanumeric, Rng};
-        
-        let passwordtoset: String = rand::thread_rng()
-        .sample_iter(&Alphanumeric)
-        .take(7)
-        .map(char::from)
-        .collect();
+            passwordtoset = rand::thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(7)
+            .map(char::from)
+            .collect();
+        }
+
         
         
         let address = "http://".to_string() + &podip.clone() + ":8000";
         
-        
         let resp = reqwest::blocking::get(  &(address.to_string() + "/set_password/"+ &passwordtoset)  );
         
         
-        println!("setting password of unallocated pod");
-        
-        
         //return podid;
-        return (podid, passwordtoset);
-        
+        return Ok((podid, passwordtoset));
     }
     
     
@@ -400,19 +412,26 @@ impl Main{
             //and return that pod
             else{
                 
-                let (podid, password) = self.get_unallocated_pod_and_set_password();
+                if let Ok( (podid, password) ) = self.get_unallocated_pod_and_set_password( Some("password") ){
+                    thepodid = podid;
+                    thepassword = password;
+                }
+                else{
+                    return "no".to_string();
+                }
                 
-                thepodid = podid;
-                thepassword = password;
                 
             }
         }
         else if let GameToConnectTo::createprivategame = gametoconnectto{
             
-            let (podid, password) = self.get_unallocated_pod_and_set_password();
-            
-            thepodid = podid;
-            thepassword = password;
+            if let Ok( (podid, password) ) = self.get_unallocated_pod_and_set_password( None ){
+                thepodid = podid;
+                thepassword = password;
+            }
+            else{
+                return "no".to_string();
+            }
             
         }
         else{
@@ -445,13 +464,17 @@ impl Main{
         }
         
 
-        return "no".to_string();
-        
+        return "no".to_string();        
     }
     
     
     
     async fn tick(&mut self){
+
+
+
+        println!("the open pods and password {:?}", self.openpodandpassword);
+        println!("the unallocated pods {:?}", self.unallocatedpods);
         
         
         //a list of every pod with an ip mapped by its ID
