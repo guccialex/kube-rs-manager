@@ -36,7 +36,7 @@ impl GlobalValues{
 
     fn get_gamepod_image() -> String{
 
-        "gcr.io/level-unfolding-299521/github.com/guccialex/ccp-websocket-server@sha256:d11f19af3c3837c117bab60cf3f3d148fb9543bb8a07efcb4e5f5a90ff04b038".to_string()
+        "gcr.io/level-unfolding-299521/github.com/guccialex/ccp-websocket-server@sha256:ad64221569320fd357787f244b16ccb3856761483f58264c39898e558a9379a1".to_string()
     }
 }
 
@@ -83,11 +83,12 @@ async fn main() {
         
         rocket::ignite()
         .manage(copiedmutexmain)
-        .mount("/", routes![join_private_game, join_public_game, create_private_game ])
+        .mount("/", routes![join_private_game, join_public_game, create_private_game, health_check ])
         .launch();
     });
     
     
+
     
     
     //a new thread that ticks the main every second
@@ -257,6 +258,11 @@ fn join_private_game( password: String, state: State<Arc<Mutex<Main>>> ) -> Stri
 }
 
 
+//respond to the health check and return a success
+#[get("/")]
+fn health_check() {
+
+}
 
 
 use std::collections::{HashMap, HashSet};
@@ -689,8 +695,8 @@ impl Main{
 
 
 
-        println!("the open pods and password {:?}", self.openpodandpassword);
-        println!("the unallocated pods {:?}", self.unallocatedpods);
+        //println!("the open pods and password {:?}", self.openpodandpassword);
+        //println!("the unallocated pods {:?}", self.unallocatedpods);
         
         
         

@@ -3,7 +3,7 @@ kind: Service
 metadata:
   name: kube-manager-service
 spec:
-  type: LoadBalancer
+  #type: NodePort
   selector:
     podtype: kube-manager
   ports:

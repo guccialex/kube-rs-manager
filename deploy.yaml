@@ -1,15 +1,25 @@
-apiVersion: v1
-kind: Pod
+apiVersion: apps/v1
+kind: Deployment
 metadata:
   name: kube-manager-deployment
-  
   labels:
     podtype: kube-manager
 spec:
-  containers:
-    - name: kube-rs-manager
-      image: gcr.io/level-unfolding-299521/github.com/guccialex/kube-rs-manager@sha256:0d679c9ed89a882d986916f6266ecdb4e62df049090dfcdd89dd8ff507b06e11
-      ports:
+  replicas: 2
+  selector:
+    matchLabels:
+      podtype: kube-manager
+
+  template:
+  
+    metadata:
+      labels:
+        podtype: kube-manager
+    spec:
+      containers:
         - name: kube-rs-manager
-          containerPort: 8000
-          protocol: TCP
+          image: gcr.io/level-unfolding-299521/github.com/guccialex/kube-rs-manager@sha256:0d679c9ed89a882d986916f6266ecdb4e62df049090dfcdd89dd8ff507b06e11
+          ports:
+            - name: kube-rs-manager
+              containerPort: 8000
+              protocol: TCP
