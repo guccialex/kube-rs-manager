@@ -11,14 +11,14 @@ spec:
       podtype: kube-manager
 
   template:
-  
+
     metadata:
       labels:
         podtype: kube-manager
     spec:
       containers:
         - name: kube-rs-manager
-          image: gcr.io/level-unfolding-299521/github.com/guccialex/kube-rs-manager@sha256:0d679c9ed89a882d986916f6266ecdb4e62df049090dfcdd89dd8ff507b06e11
+          image: gcr.io/level-unfolding-299521/github.com/guccialex/kube-rs-manager@sha256:c76659938b742c90940926bd63b940a5377f566fde8396861bc417b3b0bdf0bb
           ports:
             - name: kube-rs-manager
               containerPort: 8000
