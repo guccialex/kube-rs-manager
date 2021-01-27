@@ -262,9 +262,12 @@ fn join_private_game( password: String, state: State<Arc<Mutex<Main>>> ) -> Stri
 use rocket::http::Status;
 
 //respond to the health check and return a status of 200
-#[get("/")]
-fn health_check() -> Status{
+#[get("/<catchall>")]
+fn health_check(catchall: String) -> Status{
+
+    println!("the path requested: {:?}", catchall);
     println!("health check performed");
+    
     Status::Ok
 }
 
