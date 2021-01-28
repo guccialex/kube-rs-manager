@@ -216,7 +216,7 @@ async fn create_external_load_balancer(serviceapi: & kube::Api<k8s_openapi::api:
 //join public, join private, create private
 
 
-#[get("/matchmaker-api/create_private_game")]
+#[get("/create_private_game")]
 fn create_private_game( state: State<Arc<Mutex<Main>>> ) -> String {
     
     println!("request to join private game");
@@ -230,7 +230,7 @@ fn create_private_game( state: State<Arc<Mutex<Main>>> ) -> String {
 }
 
 
-#[get("/matchmaker-api/join_public_game")]
+#[get("/join_public_game")]
 fn join_public_game( state: State<Arc<Mutex<Main>>> ) -> String {
     
     println!("request to join public game");
@@ -244,7 +244,7 @@ fn join_public_game( state: State<Arc<Mutex<Main>>> ) -> String {
 }
 
 
-#[get("/matchmaker-api/join_private_game/<password>")]
+#[get("/join_private_game/<password>")]
 fn join_private_game( password: String, state: State<Arc<Mutex<Main>>> ) -> String {
     
     println!("request to join private game");
@@ -261,13 +261,15 @@ fn join_private_game( password: String, state: State<Arc<Mutex<Main>>> ) -> Stri
 
 use rocket::http::Status;
 
+
+//catch all paths without a slash in them
 //respond to the health check and return a status of 200
 #[get("/<catchall>")]
 fn health_check(catchall: String) -> Status{
 
     println!("the path requested: {:?}", catchall);
     println!("health check performed");
-    
+
     Status::Ok
 }
 
