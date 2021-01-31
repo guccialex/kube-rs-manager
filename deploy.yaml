@@ -5,7 +5,7 @@ metadata:
   labels:
     podtype: kube-manager
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       podtype: kube-manager
@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
         - name: kube-rs-manager
-          image: gcr.io/level-unfolding-299521/github.com/guccialex/kube-rs-manager@sha256:12b96d3ab515f14e72c199d194111ad5ef14ad24122c6e4d207adb641e7aeaa7
+          image: gcr.io/$PROJECT_ID/matchmaker:latest
           ports:
             - name: kube-rs-manager
               containerPort: 8000
