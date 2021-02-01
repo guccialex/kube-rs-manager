@@ -26,6 +26,7 @@ steps:
   - 'CLOUDSDK_CONTAINER_CLUSTER=cluster-1'
 
 
+timeout: 1800s
 
 
 images:
