@@ -35,7 +35,7 @@ struct GlobalValues{
 impl GlobalValues{
 
     fn get_gamepod_image() -> String{
-        "gcr.io/level-unfolding-299521/github.com/guccialex/ccp-websocket-server:latest".to_string()
+        "gcr.io/level-unfolding-299521/ccp-websocket-server:latest".to_string()
     }
 }
 
