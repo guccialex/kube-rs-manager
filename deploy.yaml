@@ -1,25 +1,39 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: kube-manager-deployment
+  name: kube-manager-d
   labels:
-    podtype: kube-manager
+    podtype: kube-manager-d
 spec:
   replicas: 1
   selector:
     matchLabels:
-      podtype: kube-manager
+      podtype: kube-manager-d
 
   template:
 
     metadata:
       labels:
-        podtype: kube-manager
+        podtype: kube-manager-d
     spec:
       containers:
-        - name: kube-rs-manager
+        - name: kube-rs-manager-d
           image: gcr.io/level-unfolding-299521/matchmaker:latest
           ports:
-            - name: kube-rs-manager
+            - name: client-port
               containerPort: 8000
               protocol: TCP
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: kube-manager-s
+spec:
+  selector:
+    podtype: kube-manager-d
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8000

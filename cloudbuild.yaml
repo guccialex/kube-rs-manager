@@ -4,30 +4,25 @@ steps:
 #build the image
 - name: 'gcr.io/cloud-builders/docker'
   args: ['build', '-t', 'gcr.io/$PROJECT_ID/matchmaker:latest',  '.']
-  id: 'first'
+  id: 'build_image'
   waitFor: ['-'] 
 
 
-# deploy the deployment
+#push the image to the repository
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['push', 'gcr.io/$PROJECT_ID/matchmaker:latest']
+  id: 'push_image'
+  waitFor: ['build_image']
+
+
+# deploy the deployment and service
 - name: 'gcr.io/cloud-builders/kubectl'
   args: ['apply', '-f', 'deploy.yaml']
-  waitFor: ['first'] 
+  waitFor: ['push_image'] 
   env:
   - 'CLOUDSDK_COMPUTE_ZONE=us-central1-c'
   - 'CLOUDSDK_CONTAINER_CLUSTER=cluster-1'
 
-
-# deploy the service
-- name: 'gcr.io/cloud-builders/kubectl'
-  args: ['apply', '-f', 'service.yaml']
-  waitFor: ['first'] 
-  env:
-  - 'CLOUDSDK_COMPUTE_ZONE=us-central1-c'
-  - 'CLOUDSDK_CONTAINER_CLUSTER=cluster-1'
 
 
 timeout: 1800s
-
-
-images:
-- 'gcr.io/$PROJECT_ID/matchmaker:latest'
