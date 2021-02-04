@@ -229,6 +229,7 @@ fn create_private_game( state: State<Arc<Mutex<Main>>> ) -> String {
 }
 
 
+
 #[get("/join_public_game")]
 fn join_public_game( state: State<Arc<Mutex<Main>>> ) -> String {
     
