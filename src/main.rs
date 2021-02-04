@@ -462,7 +462,7 @@ impl Main{
                 self.tell_pod_player_was_allocated(thepodid);
                 
                 
-                let addressandport = "wss://".to_string() + &nodeexternalip + ":" + externalport;
+                let addressandport = "ws://".to_string() + &nodeexternalip + ":" + externalport;
                 
                 let connectedtogame = ConnectedToGame{
                     addressandport: addressandport,
