@@ -690,7 +690,7 @@ impl Main{
         
         
         //make the load balancers that dont exist
-        for x in 0..5{
+        for x in 0..1{
             
             if exposers.contains(&x){
                 continue;
