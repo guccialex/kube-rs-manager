@@ -404,7 +404,10 @@ impl Main{
             }
         }
         
-        
+
+        println!("geetting password and playerss");
+
+        use tokio::time::{timeout, Duration};
         
     
         
@@ -418,26 +421,32 @@ impl Main{
             let address = "http://".to_string() + &podip.clone() + ":8000";
             
             
-            if let Ok(result) = reqwest::get( &(address.clone() + "/get_players_in_game") ).await{
+            if let Ok(timeout) = timeout(Duration::from_secs(1), reqwest::get( &(address.clone() + "/get_players_in_game") )   ).await{
                 
-                let body = result.text().await.unwrap();
+                if let Ok(result) = timeout{
+
+                    let body = result.text().await.unwrap();
                 
-                if let Ok(playernumb) = body.parse::<u8>(){
-                    
-                    podtonumberofconnectedplayers.insert(*podid, playernumb);
-                    
-                    if playernumb < 2{
+                    if let Ok(playernumb) = body.parse::<u8>(){
                         
-                        let password = reqwest::get( &(address + "/get_password") )
-                        .await
-                        .unwrap()
-                        .text()
-                        .await
-                        .unwrap();
+                        podtonumberofconnectedplayers.insert(*podid, playernumb);
                         
-                        podtopassword.insert(*podid, password);
-                        
+                        if playernumb < 2{
+                            
+                            let password = reqwest::get( &(address + "/get_password") )
+                            .await
+                            .unwrap()
+                            .text()
+                            .await
+                            .unwrap();
+                            
+                            podtopassword.insert(*podid, password);
+                            
+                        }
                     }
+                }
+                else{
+                    println!("request to pod for information timedout");
                 }
             }
             else{
@@ -446,7 +455,7 @@ impl Main{
         }
         
         
-        
+        println!("geetting external ports");
         
         
         let mut podtoexternalport: HashMap<u32, String> = HashMap::new();
