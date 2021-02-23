@@ -99,7 +99,7 @@ async fn main() {
         println!("ticking");
         
         //every second
-        let sleeptime = time::Duration::from_millis(1000);
+        let sleeptime = time::Duration::from_millis(3000);
         thread::sleep( sleeptime );
         
         //unlock the mutex main while handling this message
@@ -317,6 +317,8 @@ impl Main{
     //get the list of available games for the player to choose from
     //the id of each game, and the number of players in it
     fn get_available_games(&self) -> String{
+
+        println!("The games available are {:?}", self.pods);
         
         let mut toreturn: Vec<(u32, u8)> = Vec::new();
 
@@ -341,6 +343,8 @@ impl Main{
     //as a JSON value
     fn connect_to_game(&mut self, gameid: u32) -> String{
 
+
+        println!("Someones requesting to join game {:?}", gameid);
         
         //if theres a valid external node ip and a valid external nodeport for the pod
         if let Some(nodeexternalip) = self.nodeexternalip.clone(){
@@ -395,6 +399,8 @@ impl Main{
             
             let id = id.parse::<u32>().unwrap();
             
+            println!("ids {:?}", id);
+
             if let Some(ips) = item.status.clone(){
                 
                 if let Some(ip) = ips.pod_ip{
@@ -428,6 +434,8 @@ impl Main{
                     let body = result.text().await.unwrap();
                 
                     if let Ok(playernumb) = body.parse::<u8>(){
+
+                        println!("number of players {:?}", playernumb);
                         
                         podtonumberofconnectedplayers.insert(*podid, playernumb);
                         
@@ -439,6 +447,8 @@ impl Main{
                             .text()
                             .await
                             .unwrap();
+
+                            println!("got password {:?}", password);
                             
                             podtopassword.insert(*podid, password);
                             
@@ -511,6 +521,8 @@ impl Main{
                 if let Some(numberofplayers) = podtonumberofconnectedplayers.get(&id){
 
                     if let Some(password) = podtopassword.get(&id){
+
+                        println!("ADDING THE VALID GAME TO LIST OF GAMES ID:{:?}", id);
 
                         self.pods.insert(*id, (*numberofplayers, internalip.clone(), externalport.clone(), password.clone() ) );
 
