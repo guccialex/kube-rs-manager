@@ -512,8 +512,6 @@ impl Main{
 
 
 
-
-
         for (id, internalip) in & podtointernalip{
 
             if let Some(externalport) = podtoexternalport.get(&id){
@@ -534,13 +532,6 @@ impl Main{
 
 
 
-
-
-
-
-
-        
-        
 
 
 
