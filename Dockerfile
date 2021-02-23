@@ -10,5 +10,4 @@ RUN rustup default nightly
 RUN cargo update
 RUN cargo build --release
 
-#ROCKET_ENV=prod
 CMD cargo run --release
