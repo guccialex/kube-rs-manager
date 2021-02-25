@@ -300,7 +300,7 @@ impl Main{
         Main{
             pods: HashMap::new(),
 
-            podstomake: 10,
+            podstomake: 3,
             
             nodeexternalip: None,
             podapi: podapi,
@@ -379,10 +379,7 @@ impl Main{
         self.nodeexternalip = None;
         
         
-        
         let mut podtointernalip: HashMap<u32, String> = HashMap::new();
-        
-        
         
         
         
@@ -411,7 +408,6 @@ impl Main{
         }
         
 
-        println!("geetting password and playerss");
 
         use tokio::time::{timeout, Duration};
         
@@ -465,7 +461,6 @@ impl Main{
         }
         
         
-        println!("geetting external ports");
         
         
         let mut podtoexternalport: HashMap<u32, String> = HashMap::new();
@@ -519,8 +514,6 @@ impl Main{
                 if let Some(numberofplayers) = podtonumberofconnectedplayers.get(&id){
 
                     if let Some(password) = podtopassword.get(&id){
-
-                        println!("ADDING THE VALID GAME TO LIST OF GAMES ID:{:?}", id);
 
                         self.pods.insert(*id, (*numberofplayers, internalip.clone(), externalport.clone(), password.clone() ) );
 
@@ -591,9 +584,8 @@ impl Main{
                 }
             }
         }
-    
-    
     }
+
     
 }
 
