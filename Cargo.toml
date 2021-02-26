@@ -7,10 +7,10 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+
 kube = "*"
 #kube-runtime = "*"
 k8s-openapi = { version = "*", default-features = false, features = ["v1_19"] }
-
 
 #futures = "*"
 
@@ -18,14 +18,12 @@ serde_json = "*"
 
 serde = "*"
 
-tokio = { version = "*", features = ["full"] }
+tokio = { version = "*", features = ["blocking", "time", "macros"] }
 
 tungstenite = "*"
 
 rocket = "*"
 
-
 reqwest = { version = "*", features = ["blocking", "json"] }
-
 
 rand = "*"
