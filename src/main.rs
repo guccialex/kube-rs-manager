@@ -105,8 +105,14 @@ async fn main() {
         //unlock the mutex main while handling this message
         
         {
-            let mut main = copiedmutexmain.lock().unwrap();
-            main.tick().await;
+            if let Ok(mut main) = copiedmutexmain.lock(){
+                main.tick().await;
+            }
+            //if its poisoned, just panic so the pod is restarted
+            else{
+                panic!("the main is poisoned. Restarting pod");
+            }
+
         }
     };
     
