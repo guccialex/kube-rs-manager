@@ -8,9 +8,11 @@ edition = "2018"
 
 [dependencies]
 
-kube = "*"
+kube = "0.51.0"
+#0.51.0 or * was the last working version
+
 #kube-runtime = "*"
-k8s-openapi = { version = "*", default-features = false, features = ["v1_19"] }
+k8s-openapi = { version = "0.11.0", default-features = false, features = ["v1_19"] }
 
 #futures = "*"
 
@@ -18,7 +20,8 @@ serde_json = "1.0"
 
 serde = "1.0.124"
 
-tokio = { version = "0.2.25", features = ["blocking", "time", "macros"] }
+tokio = { version = "^1.0.1", features = [ "time", "macros"] }
+#kube versison 0.51.0 also says on crates that it can rely on tokio version ^1.0.1, but my lock file says 0.2.25 
 
 tungstenite = "0.13.0"
 
