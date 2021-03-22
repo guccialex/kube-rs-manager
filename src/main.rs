@@ -151,7 +151,6 @@ async fn create_gamepod(podapi: & kube::Api<k8s_openapi::api::core::v1::Pod>, ga
     })).unwrap();
     
     
-    
     let postparams = PostParams::default();
     
     
