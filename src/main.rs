@@ -305,7 +305,7 @@ impl Main{
         Main{
             pods: HashMap::new(),
 
-            podstomake: 3,
+            podstomake: 15,
             
             nodeexternalip: None,
             podapi: podapi,
