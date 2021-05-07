@@ -20,8 +20,10 @@ serde_json = "1.0"
 
 serde = "1.0.124"
 
-tokio = { version = "^1.0.1", features = [ "time", "macros"] }
+tokio = { version = "1.5.0", features = [ "time", "macros"] }
 #kube versison 0.51.0 also says on crates that it can rely on tokio version ^1.0.1, but my lock file says 0.2.25 
+
+futures = "*"
 
 tungstenite = "0.13.0"
 
