@@ -115,14 +115,13 @@ async fn main() {
             
             //unlock the mutex main while handling this message
             {
-                if let Some(mut main) = copiedmutexmain1.try_lock(){
+                if let Some(mut main) = copiedmutexmain1.try_lock_for(time::Duration::from_millis(2000)){
                     main.tick();
                 }
             }
         }
         
     });
-    
     
     
     let copiedmutexmain = mutexmain.clone();
@@ -136,16 +135,17 @@ async fn main() {
         
         
         //every second
-        let sleeptime = time::Duration::from_millis(3000);
+        let sleeptime = time::Duration::from_millis(1000);
         thread::sleep( sleeptime );
         
         //unlock the mutex main while handling this message
         {
-            if let Some(_) = copiedmutexmain.try_lock_for(time::Duration::from_millis(60000)){
+            if let Some(thing) = copiedmutexmain.try_lock_for(time::Duration::from_millis(10000)){
+
             }
             //if its poisoned, just panic so the pod is restarted
             else{
-                panic!("the main is poisoned. Restarting pod");
+                panic!("the main is blocked. Restarting pod");
             }
         }
     };
@@ -469,7 +469,7 @@ impl Main{
             let address = "http://".to_string() + &podip.clone() + ":8000";
             
             
-            if let Ok(timeout) = block_on( timeout(Duration::from_millis(100), reqwest::get( &(address.clone() + "/get_players_in_game") ) ) ){
+            if let Ok(timeout) = block_on( timeout(Duration::from_millis(50), reqwest::get( &(address.clone() + "/get_players_in_game") ) ) ){
                 
                 if let Ok(result) = timeout{
                     
