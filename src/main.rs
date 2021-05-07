@@ -23,7 +23,9 @@ use std::net::TcpStream;
 use std::process::Command;
 use std::{thread, time};
 use std::sync::Arc;
-use std::sync::Mutex;
+use parking_lot::Mutex;
+
+//use std::sync::Mutex;
 
 
 
@@ -102,7 +104,7 @@ async fn main() {
             
             //unlock the mutex main while handling this message
             {
-                if let Ok(mut main) = copiedmutexmain1.lock(){
+                if let mut main = copiedmutexmain1.lock(){
                     main.tick();
                 }
             }
@@ -128,7 +130,7 @@ async fn main() {
         
         //unlock the mutex main while handling this message
         {
-            if let Ok(mut main) = copiedmutexmain.lock(){
+            if let Some(_) = copiedmutexmain.try_lock_for(time::Duration::from_millis(1000)){
             }
             //if its poisoned, just panic so the pod is restarted
             else{
@@ -247,7 +249,7 @@ fn get_available_games( state: State<Arc<Mutex<Main>>> ) -> String{
     println!("requesting to see the games available");
     
     let game = state.inner();
-    let mut game = game.lock().unwrap();
+    let mut game = game.lock();
     
     game.get_available_games()
 }
@@ -259,7 +261,7 @@ fn join_game( gameid: u32, state: State<Arc<Mutex<Main>>> ) -> String {
     println!("request to join game");
     
     let game = state.inner();
-    let mut game = game.lock().unwrap();
+    let mut game = game.lock();
     
     game.connect_to_game(gameid)
 }
@@ -401,6 +403,10 @@ impl Main{
         
         use futures::executor::block_on;
         
+        use tokio::time::{timeout, Duration};
+
+
+
         
         
         self.pods = HashMap::new();
@@ -437,7 +443,6 @@ impl Main{
         
         
         
-        use tokio::time::{timeout, Duration};
         
         
         
