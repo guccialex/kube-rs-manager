@@ -29,6 +29,10 @@ use parking_lot::Mutex;
 
 
 
+use futures::executor::block_on;
+
+
+
 struct GlobalValues{
     
     
@@ -43,6 +47,30 @@ impl GlobalValues{
 
 
 
+async fn get_apis() -> (Api<Pod>,Api<Service>,Api<Node>){
+
+    let namespace = std::env::var("NAMESPACE").unwrap_or("default".into());
+
+    //connect to the kubernetes pod and service apis
+    let client = Client::try_default();
+    let client2 = Client::try_default();
+    let client3 = Client::try_default();
+    
+    let (client,client2,client3) = tokio::join!(client,client2,client3);
+
+    let client = client.unwrap();
+    let client2 = client2.unwrap();
+    let client3 = client3.unwrap();
+
+
+    let podapi: Api<Pod> = Api::namespaced(client, &namespace);
+    let serviceapi: Api<Service> = Api::namespaced(client2, &namespace);
+    let nodeapi: Api<Node> = Api::all(client3);
+
+    return (podapi, serviceapi, nodeapi);
+}
+
+
 
 use rocket::State;
 
@@ -52,26 +80,10 @@ async fn main() {
     
     std::env::set_var("RUST_LOG", "info,kube=debug");
     
+
+    let (podapi, serviceapi, nodeapi) = block_on( get_apis() );
     
-    let namespace = std::env::var("NAMESPACE").unwrap_or("default".into());
-    
-    //connect to the kubernetes pod and service apis
-    let client = Client::try_default();
-    let client2 = Client::try_default();
-    let client3 = Client::try_default();
-    
-    let (client, client2, client3) = tokio::join!(client,client2,client3);
-    
-    let client = client.unwrap();
-    let client2 = client2.unwrap();
-    let client3 = client3.unwrap();
-    
-    let podapi: Api<Pod> = Api::namespaced(client, &namespace);
-    let serviceapi: Api<Service> = Api::namespaced(client2, &namespace);
-    let nodeapi: Api<Node> = Api::all(client3);
-    
-    
-    
+
     let mutexmain = Arc::new(Mutex::new(Main::new(podapi, serviceapi, nodeapi)));
     
     
@@ -79,7 +91,7 @@ async fn main() {
     let copiedmutexmain = mutexmain.clone();      
     
     
-    tokio::spawn(async move {
+    tokio::task::spawn_blocking( move || {
         
         rocket::ignite()
         .manage(copiedmutexmain)
@@ -92,10 +104,9 @@ async fn main() {
     let copiedmutexmain1 = mutexmain.clone();
     
     //tick loop
-    tokio::spawn(async move {
+    tokio::task::spawn_blocking( move || {
         
         loop{
-            
             println!("ticking");
             
             //every second
@@ -104,7 +115,7 @@ async fn main() {
             
             //unlock the mutex main while handling this message
             {
-                if let mut main = copiedmutexmain1.lock(){
+                if let Some(mut main) = copiedmutexmain1.try_lock(){
                     main.tick();
                 }
             }
@@ -130,7 +141,7 @@ async fn main() {
         
         //unlock the mutex main while handling this message
         {
-            if let Some(_) = copiedmutexmain.try_lock_for(time::Duration::from_millis(1000)){
+            if let Some(_) = copiedmutexmain.try_lock_for(time::Duration::from_millis(60000)){
             }
             //if its poisoned, just panic so the pod is restarted
             else{
@@ -138,6 +149,9 @@ async fn main() {
             }
         }
     };
+
+
+
     
 }
 
@@ -401,13 +415,12 @@ impl Main{
     //this shouldnt be an async function
     fn tick(&mut self){
         
-        use futures::executor::block_on;
         
         use tokio::time::{timeout, Duration};
 
 
 
-        
+        println!("got here1");
         
         self.pods = HashMap::new();
         self.nodeexternalip = None;
@@ -441,7 +454,7 @@ impl Main{
         
         
         
-        
+        println!("got here2");
         
         
         
@@ -492,7 +505,7 @@ impl Main{
         
         
         
-        
+        println!("got here3");
         
         
         
@@ -556,6 +569,9 @@ impl Main{
                 }
             }
         };
+
+
+        println!("got here4");
         
         
         
@@ -591,7 +607,9 @@ impl Main{
         
         
         
-        
+        println!("got here5");
+
+
         //set the external ip
         self.nodeexternalip = None;
         
