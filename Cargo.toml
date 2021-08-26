@@ -12,21 +12,17 @@ kube = { version = "0.59.0", default-features = false, features = ["client", "ru
 kube-runtime = { version = "0.59.0" }
 k8s-openapi = { version = "0.13.0", default-features = false, features = ["v1_20"] }
 
+tokio = { version = "1.0.1", features = ["full"] }
 
 
 serde_json = "1.0"
 serde = "1.0.124"
 
-
-tokio = { version = "1.5.0", features = [ "time", "macros"] }
-futures = "*"
-
+#futures = "*"
 
 rocket = "*"
 
-
-reqwest = { version = "0.11.2", features = ["blocking", "json"] }
-
+#reqwest = { version = "0.11.2", features = ["blocking", "json"] }
 
 rand = "*"
 
