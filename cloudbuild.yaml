@@ -20,7 +20,7 @@ steps:
   args: ['apply', '-f', 'deploy.yaml']
   waitFor: ['push_image'] 
   env:
-  - 'CLOUDSDK_COMPUTE_ZONE=us-central1-c'
+  - 'CLOUDSDK_COMPUTE_ZONE=us-central1'
   - 'CLOUDSDK_CONTAINER_CLUSTER=autopilot-cluster-1'
 
 
