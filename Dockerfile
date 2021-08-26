@@ -1,12 +1,13 @@
-FROM rust
+FROM rustlang/rust:nightly
+
 
 WORKDIR /home
 COPY . .
 
 
+#RUN rustup update nightly
+#RUN rustup default nightly
 RUN cargo update
-RUN rustup update nightly
-RUN rustup default nightly
 
 
 RUN cargo build --release
