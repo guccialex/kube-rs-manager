@@ -1,9 +1,8 @@
-#![feature(proc_macro_hygiene, decl_macro)]
 #[macro_use] extern crate rocket;
 
 
 use kube::{
-    api::{Api, DeleteParams, ListParams, Meta, PostParams, WatchEvent},
+    api::{Api, DeleteParams, ListParams,  PostParams, WatchEvent},
     Client,
 };
 
@@ -13,9 +12,6 @@ use k8s_openapi::api::core::v1::Service;
 use k8s_openapi::api::core::v1::Node;
 
 
-use tungstenite::{Message};
-use tungstenite::handshake::server::{Request, Response};
-use tungstenite::accept_hdr;
 
 
 use std::net::TcpListener;
@@ -23,29 +19,114 @@ use std::net::TcpStream;
 use std::process::Command;
 use std::{thread, time};
 use std::sync::Arc;
-use parking_lot::Mutex;
+use std::sync::Mutex;
+//use parking_lot::Mutex;
 
-//use std::sync::Mutex;
-
-
-
-use futures::executor::block_on;
-
+use std::collections::HashMap;
+use std::collections::HashSet;
 
 
 struct GlobalValues{
-    
-    
+
 }
 
 impl GlobalValues{
-    
+
     fn get_gamepod_image() -> String{
-        "gcr.io/level-unfolding-299521/ccp-websocket-server:latest".to_string()
+
+        "gcr.io/cheaper-324003/github.com/guccialex/ccp-websocket-pod:latest".to_string()
     }
+
+
+    fn gamepods_needed() -> HashSet<u32>{
+
+        let mut toreturn = HashSet::new();
+
+        for x in 0..20{
+            toreturn.insert( x);
+        }
+
+        return toreturn;
+    }
+
+
 }
 
 
+
+
+use tokio::task;
+
+
+#[tokio::main]
+async fn main() {
+    
+    std::env::set_var("RUST_LOG", "info,kube=debug");
+
+    /*
+    let mut cfg = Config::from_cluster_env(); // or Config::infer
+    cfg.cluster_url = some_uri;
+    */
+
+
+    //holds the most updated version of "Pods"
+    let pods = Arc::new(Mutex::new(  PodData::default()  ));
+
+
+    //tick the pods every 2 seconds
+    {
+        let pods = pods.clone();
+
+        let (podapi, serviceapi, nodeapi) = get_apis().await;
+
+        let apiwrapper = ApiWrapper{
+            pod: podapi,
+            service: serviceapi,
+            node: nodeapi
+        };
+    
+
+        task::spawn(async move {
+
+            let tickduration = time::Duration::from_millis(2000);
+            let mut interval = tokio::time::interval( tickduration );
+
+            for _i in 0..30000 {
+                interval.tick().await;
+
+                let newdata = PodData::update( &apiwrapper ).await;
+
+                *pods.lock().unwrap() = newdata; 
+
+                println!("here");
+            }
+        });
+    }
+
+
+    loop{
+
+    }
+
+
+
+    /*
+    rocket::ignite()
+    .mount("/api", routes![])
+    .launch();
+    */
+
+}
+
+
+pub fn pod_name(id: &u32) -> String{
+    return "gamepod".to_string() + &id.to_string() ;
+}
+
+//get the name of the nodeport that exposes a service
+pub fn nodeport_name(id: &u32) -> String{
+    return "nodeport".to_string() + &id.to_string() ;
+}
 
 async fn get_apis() -> (Api<Pod>,Api<Service>,Api<Node>){
 
@@ -72,460 +153,186 @@ async fn get_apis() -> (Api<Pod>,Api<Service>,Api<Node>){
 
 
 
-use rocket::State;
 
+pub struct ApiWrapper{
 
-#[tokio::main]
-async fn main() {
-    
-    std::env::set_var("RUST_LOG", "info,kube=debug");
-    
+    pod: Api<Pod>,
 
-    let (podapi, serviceapi, nodeapi) = block_on( get_apis() );
-    
+    service: Api<Service>,
 
-    let mutexmain = Arc::new(Mutex::new(Main::new(podapi, serviceapi, nodeapi)));
-    
-    
-    //listen for clients who want to be assigned a game on port 8000
-    let copiedmutexmain = mutexmain.clone();      
-    
-    
-    tokio::task::spawn_blocking( move || {
-        
-        rocket::ignite()
-        .manage(copiedmutexmain)
-        .mount("/", routes![health_check, join_game, get_available_games ])
-        .launch();
-    });
-    
-    
-    
-    let copiedmutexmain1 = mutexmain.clone();
-    
-    //tick loop
-    tokio::task::spawn_blocking( move || {
-        
-        loop{
-            println!("ticking");
-            
-            //every second
-            let sleeptime = time::Duration::from_millis(3000);
-            thread::sleep( sleeptime );
-            
-            //unlock the mutex main while handling this message
-            {
-                if let Some(mut main) = copiedmutexmain1.try_lock_for(time::Duration::from_millis(2000)){
-                    main.tick();
-                }
-            }
-        }
-        
-    });
-    
-    
-    let copiedmutexmain = mutexmain.clone();
-    
-    
-    
-    //panic if main struct poisoned
-    loop {
-        
-        println!("checking if poisoned tick");
-        
-        
-        //every second
-        let sleeptime = time::Duration::from_millis(1000);
-        thread::sleep( sleeptime );
-        
-        //unlock the mutex main while handling this message
-        {
-            if let Some(thing) = copiedmutexmain.try_lock_for(time::Duration::from_millis(10000)){
-
-            }
-            //if its poisoned, just panic so the pod is restarted
-            else{
-                panic!("the main is blocked. Restarting pod");
-            }
-        }
-    };
-
-
-
-    
+    node: Api<Node>,
 }
 
+impl ApiWrapper{
 
-//try to create a new gamepod server
-//with this id
-async fn create_gamepod(podapi: & kube::Api<k8s_openapi::api::core::v1::Pod>, gamepodid: u32 ){
-    
-    println!("making game pod {:?}", gamepodid);
-    
-    
-    let podname = "gamepod".to_string() + &gamepodid.to_string();
-    
-    
-    
-    // Create the pod
-    let pod: Pod = serde_json::from_value(serde_json::json!({
-        "apiVersion": "v1",
-        "kind": "Pod",
-        "metadata": {
-            "name": podname,
-            
-            "labels": {
-                "podtype": "gameserver",
-                "gameserverid": gamepodid.to_string(),
-            },
-        },
-        "spec": {
-            "containers": [{
-                "name": "container",
-                "image": GlobalValues::get_gamepod_image(),
-            }],
-        }
-    })).unwrap();
-    
-    
-    let postparams = PostParams::default();
-    
-    
-    podapi.create(&postparams, &pod).await;
-}
-
-
-
-//create an external load balancer for this gamepodid
-async fn create_external_load_balancer(serviceapi: & kube::Api<k8s_openapi::api::core::v1::Service>, gamepodid: u32 ) {
-    
-    println!("making load balancer {:?}", gamepodid);
-    
-    
-    let servicename = "service".to_string()+ &gamepodid.to_string();
-    let serviceid = gamepodid.to_string();
-    
-    
-    
-    let service: Service = serde_json::from_value(serde_json::json!({
+    //try to create a new gamepod server
+    //with this id
+    async fn create_gamepod(podapi: & kube::Api<k8s_openapi::api::core::v1::Pod>, gamepodid: u32){
         
-        "apiVersion": "v1",
-        "kind": "Service",
-        "metadata": {
-            //its name is "service231" where the number is the pod id
-            "name": servicename,
-            
-            "labels": {
-                "servicetype": "gamepodexposer",
-                "serviceid": serviceid,
-            },
-        },
-        "spec": {
-            "type": "NodePort",
-            
-            //select the game pod with this id
-            "selector": {
-                "gameserverid": gamepodid.to_string(),
-            },
-            
-            //expose port 4000
-            "ports": [{
-                "protocol": "TCP",
-                //the port and target port mean the same thing right? what port to forward the connection on the nodeport
-                "port": 4000,
-                "targetPort": 4000,
-            }],
-            
-        }
-    })).unwrap();
-    
-    
-    let postparams = PostParams::default();
-    
-    
-    serviceapi.create( &postparams, &service).await;
-}
-
-
-
-
-
-//the function called when the player wants to join different games
-//return the ip and port and password
-
-
-//join public, join private, create private
-
-
-#[get("/get_available_games")]
-fn get_available_games( state: State<Arc<Mutex<Main>>> ) -> String{
-    
-    println!("requesting to see the games available");
-    
-    let game = state.inner();
-    let mut game = game.lock();
-    
-    game.get_available_games()
-}
-
-
-#[get("/join_game/<gameid>")]
-fn join_game( gameid: u32, state: State<Arc<Mutex<Main>>> ) -> String {
-    
-    println!("request to join game");
-    
-    let game = state.inner();
-    let mut game = game.lock();
-    
-    game.connect_to_game(gameid)
-}
-
-
-
-
-use rocket::http::Status;
-
-
-//respond to the health check and return a status of 200
-#[get("/")]
-fn health_check() -> Status{
-    
-    println!("health check performed");
-    
-    Status::Ok
-}
-
-
-
-
-
-
-
-use std::collections::{HashMap, HashSet};
-
-
-struct Main{
-    
-    
-    //every tick this is updated
-    
-    //pods to the number of players allocated
-    //internal port
-    //external port
-    //and password
-    pods: HashMap<u32, (u8, String, String, String)>,
-    
-    
-    //how many pods this game should have
-    podstomake: u32,
-    
-    
-    
-    
-    //the externalIP of a node in this cluster 
-    nodeexternalip: Option<String>,
-    podapi: Api<Pod>,
-    serviceapi: Api<Service>,
-    nodeapi: Api<Node>,
-    
-}
-
-use std::error;
-//use std::any::Any;
-
-impl Main{
-    
-    
-    
-    fn new(podapi: Api<Pod>, serviceapi: Api<Service>, nodeapi: Api<Node>) -> Main{        
         
-        Main{
-            pods: HashMap::new(),
-            
-            podstomake: 15,
-            
-            nodeexternalip: None,
-            podapi: podapi,
-            serviceapi: serviceapi,
-            nodeapi: nodeapi,
-        }
-        
-    }
-    
-    
-    
-    
-    
-    //get the list of available games for the player to choose from
-    //the id of each game, and the number of players in it
-    fn get_available_games(&self) -> String{
-        
-        println!("The games available are {:?}", self.pods);
-        
-        let mut toreturn: Vec<(u32, u8)> = Vec::new();
-        
-        for (podid, (numberconnected,_,_,_)) in &self.pods{
-            
-            if numberconnected < &2 {
+        // Create the pod
+        let pod: Pod = serde_json::from_value(serde_json::json!({
+            "apiVersion": "v1",
+            "kind": "Pod",
+            "metadata": {
+                "name": pod_name(&gamepodid),
                 
-                toreturn.push( (*podid, *numberconnected) );
+                "labels": {
+                    "podtype": "gameserver",
+                },
+            },
+            "spec": {
+                "restartPolicy" : "Never",
+                "containers": [{
+                    "name": "container",
+                    "image": GlobalValues::get_gamepod_image(),
+                }],
             }
-        }
+        })).unwrap();
         
-        serde_json::to_string(&toreturn).unwrap()
+        
+        let postparams = PostParams::default();
+        
+        
+        podapi.create(&postparams, &pod).await;
     }
-    
-    
-    
-    
-    
-    //a player who wants to connect to a game
-    //join a game and return the address and port and password
-    //as a JSON value
-    fn connect_to_game(&mut self, gameid: u32) -> String{
+
+    //for this gamepod
+    //create a nodeport
+    //a nodeport exposes a port and sends all traffic to that port
+    async fn create_service_exposing(serviceapi: & Api<Service>, gamepodid: u32 ) {
         
+        let serviceid = gamepodid.to_string();
+
         
-        println!("Someones requesting to join game {:?}", gameid);
-        
-        //if theres a valid external node ip and a valid external nodeport for the pod
-        if let Some(nodeexternalip) = self.nodeexternalip.clone(){
+        let service: Service = serde_json::from_value(serde_json::json!({
             
-            if let Some( ( connectedplayers, _, externalport, password) ) = self.pods.get(&gameid){
+            "apiVersion": "v1",
+            "kind": "Service",
+            "metadata": {
+
+                "name": nodeport_name(&gamepodid),
                 
-                if connectedplayers < &2{
+                "labels": {
+                    "servicetype": "gamepodexposer",
+                },
+            },
+            "spec": {
+                "type": "NodePort",
+                
+                //select game pods with this name
+                "selector": {
+                    "name": pod_name(&gamepodid),
+                },
+                
+                "ports": [{
+                    "protocol": "TCP",
+
+                    "port": 4000,
                     
-                    let addressandport = "ws://".to_string() + &nodeexternalip + ":" + externalport;
-                    
-                    let connectedtogame = ConnectedToGame{
-                        addressandport: addressandport,
-                        gamepassword: password.clone(),
-                    };
-                    
-                    let toreturn = serde_json::to_string(&connectedtogame).unwrap();
-                    
-                    return toreturn;
-                }
+                    //should always SEND to port 4000
+                    "targetPort": 4000,
+                }],
             }
-        }
+        })).unwrap();
         
-        return "no".to_string();        
+        
+        let postparams = PostParams::default();
+        
+        
+        serviceapi.create( &postparams, &service).await;
     }
-    
-    
-    //this shouldnt be an async function
-    fn tick(&mut self){
-        
-        
-        use tokio::time::{timeout, Duration};
 
 
 
-        println!("got here1");
+
+    //get the gamepods that exist
+    //unhealthy gamepods are killed by kubernetes automatically (when I configure health checks properly...)
+    //and make sure they dont automatically reboot
+    async fn get_existing_gamepods(podapi: & Api<Pod>) -> HashMap<u32, Pod>{
+
+        let mut toreturn = HashMap::new();
         
-        self.pods = HashMap::new();
-        self.nodeexternalip = None;
-        
-        let mut podtointernalip: HashMap<u32, String> = HashMap::new();
         
         //get the list of every pod with an ID and IP
         let lp = ListParams::default()
         .timeout(1)
         .labels( &("podtype=gameserver") );
         
-        let result = block_on( self.podapi.list(&lp) ).unwrap();
+        let result = podapi.list(&lp).await.unwrap();
         
         for item in result{
-            
+
             let id = item.metadata.labels.clone().unwrap().get("gameserverid").unwrap().clone();
             
             let id = id.parse::<u32>().unwrap();
             
+            toreturn.insert( id, item);
+
+            
+            /*
             println!("ids {:?}", id);
             
             if let Some(ips) = item.status.clone(){
                 
                 if let Some(ip) = ips.pod_ip{
                     
-                    podtointernalip.insert(id, ip);
+                    self.podstointernalip.insert(id, ip);
                 }
             }
-        }
-        
-        
-        
-        
-        println!("got here2");
-        
-        
-        
-        
-        let mut podtopassword: HashMap<u32, String> = HashMap::new();
-        let mut podtonumberofconnectedplayers: HashMap<u32, u8> = HashMap::new();
-        
-        
-        //for every pod with an internal ip
-        for (podid, podip) in &podtointernalip{
-            
-            let address = "http://".to_string() + &podip.clone() + ":8000";
-            
-            
-            if let Ok(timeout) = block_on( timeout(Duration::from_millis(50), reqwest::get( &(address.clone() + "/get_players_in_game") ) ) ){
-                
-                if let Ok(result) = timeout{
-                    
-                    let body = block_on( result.text() ).unwrap();
-                    
-                    if let Ok(playernumb) = body.parse::<u8>(){
-                        
-                        println!("number of players {:?}", playernumb);
-                        
-                        podtonumberofconnectedplayers.insert(*podid, playernumb);
-                        
-                        if playernumb < 2{
-                            
-                            let password = block_on( block_on( reqwest::get( &(address + "/get_password") ) ).unwrap().text()).unwrap();
-                            
+            */
+        };
 
-                            println!("got password {:?}", password);
+        return toreturn;
+    }
+
+
+    async fn get_eternal_ip(nodeapi: &Api<Node> ) -> String{
+
+
+        //get the address of a random node that i can send back to the client
+        //to route the connection through the nodeport to the pod through
+        let lp = ListParams::default()
+        .timeout(2);
+        
+        let result = nodeapi.list(&lp).await.unwrap();
+        
+
+        //for the node
+        for item in &result{
+            
+            if let Some(status) = &item.status{
+                
+                if let Some(addresses) = &status.addresses{
+                    
+                    //for each address
+                    for address in addresses{
+                        
+                        if address.type_ == "ExternalIP"{
                             
-                            podtopassword.insert(*podid, password);
-                            
+                            return address.address.clone();
                         }
                     }
                 }
-                else{
-                    println!("request to pod for information timedout");
-                }
             }
-            else{
-                println!("no pod response");
-            }
-        }
+        };
+
         
+        panic!("cant find external ip?");
         
-        
-        
-        println!("got here3");
-        
-        
-        
-        
-        
-        let mut podtoexternalport: HashMap<u32, String> = HashMap::new();
-        
-        
-        //get every exposer
-        let mut exposers: HashSet<u32> = HashSet::new();
-        
-        
-        //get the active node balancers
-        //and use it to set the pods by ID to their exposed nodeport
-        
+    }
+
+
+    async fn get_existing_exposers( serviceapi: Api<Service> ) -> HashMap<u32, Service>{
+
+        let mut toreturn = HashMap::new();
+
         let lp = ListParams::default()
         .timeout(2)
         .labels( "servicetype=gamepodexposer" );
         
-        let result = block_on(self.serviceapi.list(&lp) ).unwrap();
+        let result = serviceapi.list(&lp).await.unwrap();
+
         
         //the list of all exposers
         for item in &result{
@@ -536,6 +343,10 @@ impl Main{
                 if let Some(exposerid) = labels.get("serviceid"){
                     
                     let exposerid = exposerid.parse::<u32>().unwrap();
+
+                    toreturn.insert( exposerid, item.clone() );
+
+                    /*
                     exposers.insert( exposerid );
                     
                     if let Some(specs) = &item.spec{
@@ -548,98 +359,19 @@ impl Main{
                             }
                         }
                     }
+                    */
                 }
             }
         }
-        
-        
-        
-        
-        for (id, internalip) in & podtointernalip{
-            
-            if let Some(externalport) = podtoexternalport.get(&id){
-                
-                if let Some(numberofplayers) = podtonumberofconnectedplayers.get(&id){
-                    
-                    if let Some(password) = podtopassword.get(&id){
-                        
-                        self.pods.insert(*id, (*numberofplayers, internalip.clone(), externalport.clone(), password.clone() ) );
-                        
-                    }
-                }
-            }
-        };
 
 
-        println!("got here4");
-        
-        
-        
-        
-        
-        
-        
-        //make the load balancers that dont exist
-        for x in 0..self.podstomake{
-            
-            if exposers.contains(&x){
-                continue;
-            }
-            else{
-                block_on( create_external_load_balancer( &self.serviceapi, x) );
-            }
-        }
-        
-        
-        
-        //for every pod id lacking, create that pod
-        for x in 0..self.podstomake{
-            
-            if podtointernalip.contains_key(&x){
-                continue;
-            }
-            else{
-                block_on( create_gamepod(&self.podapi, x) );
-            }            
-        }
-        
-        
-        
-        
-        
-        println!("got here5");
+        toreturn
 
-
-        //set the external ip
-        self.nodeexternalip = None;
-        
-        //get the address of a random node that i can send back to the client
-        //to route the connection through the nodeport to the pod through
-        let lp = ListParams::default()
-        .timeout(2);
-        
-        let result = block_on(self.nodeapi.list(&lp)).unwrap();
-        
-        //for the node
-        for item in &result{
-            
-            if let Some(status) = &item.status{
-                
-                if let Some(addresses) = &status.addresses{
-                    
-                    //for each address
-                    for address in addresses{
-                        
-                        if address.type_ == "ExternalIP"{
-                            self.nodeexternalip = Some(address.address.clone());
-                        }
-                    }
-                }
-            }
-        }
     }
-    
-    
+
+
+
+
 }
 
 
@@ -650,21 +382,99 @@ impl Main{
 
 
 
-use serde::{Serialize, Deserialize};
 
 
 
 
-//the message sent when a client is connected to a game on the server
-//and the game is active
-#[derive(Serialize, Deserialize)]
-pub struct ConnectedToGame{
-    
-    //the IP and port of the game
-    addressandport: String,
-    
-    //the password of the game
-    gamepassword: String,
+
+
+
+
+//data about all the pods
+struct PodData{
+
+    //pods to the number of players allocated
+    //internal port
+    //external port
+    //and password
+
+    //data: HashMap<u32, (u8, String, String, String)>,
+
+    //pods by id to internal ip
+    podstointernalip: HashMap<u32, String>,
+
+
+    externalip: String,
+
+    podstoport: HashMap<u32, String>,
+
 }
 
 
+impl PodData{
+
+    fn default() -> PodData{
+
+
+        PodData{
+
+            podstointernalip: HashMap::new(),
+            externalip: "none".to_string(),
+            podstoport: HashMap::new(),
+        }
+
+    }
+
+
+
+    //basically tick, but return a pod instead of needing one to mut
+    async fn update(apiwrapper: &ApiWrapper) -> PodData{
+
+
+        let allgamepods = GlobalValues::gamepods_needed();
+
+        let existinggamepods = ApiWrapper::get_existing_gamepods( &apiwrapper.pod ).await;
+
+
+        for podid in allgamepods{
+
+            if !existinggamepods.contains_key(  &podid ){
+
+                ApiWrapper::create_gamepod( &apiwrapper.pod , podid).await;
+            }
+        }
+
+
+        let externalip = ApiWrapper::get_eternal_ip( &apiwrapper.node ).await;
+
+        PodData{
+
+            externalip,
+
+            podstoport: HashMap::new(),
+
+            podstointernalip: HashMap::new(),
+        }
+
+
+
+        //create needed pods
+
+        //create needed exposers
+
+
+
+
+
+        //update self
+
+        //update external ip
+        //update pods to internal ip
+        //update pods to port
+
+
+    }
+
+
+
+}
