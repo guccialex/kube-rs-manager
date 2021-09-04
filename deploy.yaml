@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: kube-manager-d
+  namespace: default
   labels:
     podtype: kube-manager-d
 spec:
@@ -18,7 +19,7 @@ spec:
     spec:
       containers:
         - name: kube-rs-manager-d
-          image: gcr.io/level-unfolding-299521/matchmaker:latest
+          image: gcr.io/cheaper-324003/matchmaker:latest
           ports:
             - name: client-port
               containerPort: 8000
